@@ -1,0 +1,16 @@
+name: CI
+on: push
+
+jobs:
+
+  lint:
+    runs-on: debian:stable-slim
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - uses: golangci/golangci-lint-action@v4
+        with:
+          version: v1.59.1
+          args: --timeout=5m
