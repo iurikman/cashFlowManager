@@ -1,0 +1,27 @@
+linters-settings:
+  gocyclo:
+    min-complexity: 24
+  cyclop:
+    max-complexity: 24
+  forbidigo:
+    forbid:
+      - .*\.fatal,*
+      - fmt.Print.*
+
+linters:
+  enable-all: true
+
+  disable:
+    - funlen
+    - depguard
+    - exhaustive
+    - exhaustruct
+    - gomnd
+    - ireturn
+    - varnamelen
+    - tagalign
+    - wastedassign
+    - execinquery
+
+run:
+  timeout: 5m
