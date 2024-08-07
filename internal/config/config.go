@@ -2,10 +2,10 @@ package config
 
 import (
 	"fmt"
-	"net"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/ilyakaznacheev/cleanenv"
-	"github.com/segmentio/kafka-go"
 )
 
 type Config struct {
@@ -14,14 +14,14 @@ type Config struct {
 	PostgresHost     string `env:"POSTGRES_HOST" env-default:"localhost"`
 	PostgresPort     string `env:"POSTGRES_PORT" env-default:"5432"`
 	PostgresDatabase string `env:"POSTGRES_DATABASE" env-default:"postgres"`
-	PostgresUser     string `env:"POSTGRES_USER" env-default:"postgres"`
-	PostgresPassword string `env:"POSTGRES_PASSWORD" env-default:"postgres"`
+	PostgresUser     string `env:"POSTGRES_USER" env-default:"admin"`
+	PostgresPassword string `env:"POSTGRES_PASSWORD" env-default:"admin"`
 
-	KafkaBrokers  []string       `env:"KAFKA_BROKERS" env-default:"localhost:9092"`
-	KafkaTopic    string         `env:"KAFKA_TOPIC" env-default:"wallets"`
-	KafkaGroupID  string         `env:"KAFKA_GROUP_ID" env-default:"wallets_group_id"`
-	KafkaBalancer kafka.Balancer `env:"KAFKA_BALANCER" env-default:"least_bytes"`
-	KafkaAddress  net.Addr       `env:"KAFKA_ADDRESS" env-default:"localhost:9092"`
+	KafkaBrokers  []string `env:"KAFKA_BROKERS" env-default:"localhost:9094"`
+	KafkaTopic    string   `env:"KAFKA_TOPIC" env-default:"user_updates"`
+	KafkaGroupID  string   `env:"KAFKA_GROUP_ID" env-default:"wallets_group_id"`
+	KafkaBalancer string   `env:"KAFKA_BALANCER" env-default:"least_bytes"`
+	KafkaAddress  string   `env:"KAFKA_ADDRESS" env-default:"localhost:9094"`
 }
 
 func NewConfig() Config {
@@ -29,6 +29,8 @@ func NewConfig() Config {
 	if err := cleanenv.ReadEnv(&config); err != nil {
 		panic(fmt.Errorf("error reading config: %w", err))
 	}
+
+	log.Infof("Config loaded %+v", config)
 
 	return config
 }

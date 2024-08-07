@@ -1,16 +1,20 @@
 package main
 
 import (
-	"cashFlowManager/internal/config"
-	"cashFlowManager/internal/kafka"
-	"cashFlowManager/internal/rest"
-	"cashFlowManager/internal/service"
-	"cashFlowManager/internal/store"
 	"context"
-	"crypto/rsa"
-	"log"
 	"os/signal"
 	"syscall"
+
+	"github.com/iurikman/cashFlowManager/internal/broker"
+	"github.com/iurikman/cashFlowManager/internal/config"
+	"github.com/iurikman/cashFlowManager/internal/service"
+	"github.com/iurikman/cashFlowManager/internal/store"
+
+	log "github.com/sirupsen/logrus"
+
+	_ "github.com/jackc/pgx/v5"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	migrate "github.com/rubenv/sql-migrate"
 )
 
 func main() {
@@ -19,7 +23,7 @@ func main() {
 
 	cfg := config.NewConfig()
 
-	db, err := store.NewPostgres(ctx, store.Config{
+	db, err := store.New(ctx, store.Config{
 		PGUser:     cfg.PostgresUser,
 		PGPassword: cfg.PostgresPassword,
 		PGHost:     cfg.PostgresHost,
@@ -27,31 +31,23 @@ func main() {
 		PGDatabase: cfg.PostgresDatabase,
 	})
 	if err != nil {
-		log.Panicf("store.NewPostgres(context.Background(), store.Config{...} err: %v", err)
+		log.Panicf("store.NewPostgres(context.Background(), store.ServerConfig{...} err: %v", err)
 	}
 
-	kafkaConfig := kafka.Config{
-		Address:  cfg.KafkaAddress,
-		Topic:    cfg.KafkaTopic,
-		Balancer: cfg.KafkaBalancer,
-		GroupID:  cfg.KafkaGroupID,
-		Brokers:  cfg.KafkaBrokers,
+	if err := db.Migrate(migrate.Up); err != nil {
+		log.Panicf("pgStore.Migrate: %v", err)
 	}
 
-	kafkaInit, err := kafka.NewKafka(kafkaConfig)
+	log.Info("successful migration")
+
+	svc := service.NewService(db)
+
+	consumer := broker.NewConsumer(db)
+
+	err = consumer.Start(ctx)
 	if err != nil {
-		log.Panicf("kafka2.NewKafka(kafka2.Config{} err: %v", err)
+		log.Panicf("consumer.StartConsumer(ctx) err: %v", err)
 	}
 
-	svc := service.NewService(db, kafkaInit)
-	key := rsa.PublicKey{
-		N: nil,
-		E: 0,
-	}
-	srv := rest.NewServer(rest.Config{BindAddress: cfg.BindAddress}, svc, &key)
-
-	err = srv.Start(context.Background())
-	if err != nil {
-		log.Panicf("start server error: %v", err)
-	}
+	log.Infof("sercise: %v", svc)
 }
