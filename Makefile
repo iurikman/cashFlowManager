@@ -14,7 +14,8 @@ lint:
 	@echo 'Linting the project...'
 	gofumpt -w .
 	go mod tidy
-	golangci-lint run --fix -c .golangci.yaml
+	golangci-lint run --fix
+	golangci-lint run --config .golangci.yaml
 up:
 	docker compose up -d
 down:
