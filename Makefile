@@ -15,3 +15,7 @@ lint:
 	gofumpt -w .
 	go mod tidy
 	golangci-lint run --fix -c .golangci.yaml
+up:
+	docker compose up -d
+down:
+	docker compose down
