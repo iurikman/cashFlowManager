@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"crypto/rsa"
 	"errors"
 	"fmt"
 	"net/http"
@@ -22,16 +23,21 @@ type Config struct {
 }
 
 type Server struct {
-	router  *chi.Mux
+	config  Config
 	service service
+	key     *rsa.PublicKey
+	router  *chi.Mux
 	server  *http.Server
 }
 
-func NewServer(config Config, service service) *Server {
+func NewServer(config Config, service service, key *rsa.PublicKey) *Server {
 	router := chi.NewRouter()
 
 	return &Server{
+		config:  config,
 		service: service,
+		router:  router,
+		key:     key,
 		server: &http.Server{
 			Addr:              config.BindAddress,
 			Handler:           router,

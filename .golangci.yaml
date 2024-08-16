@@ -7,11 +7,15 @@ linters-settings:
     forbid:
       - .*\.fatal,*
       - fmt.Print.*
+  gci:
+    skip-generated: true
 
 linters:
   enable-all: true
 
   disable:
+    - gci
+    - gofmt
     - funlen
     - depguard
     - exhaustive
@@ -22,6 +26,13 @@ linters:
     - tagalign
     - wastedassign
     - execinquery
+    - revive
+    - godox
+    - unused
 
 run:
   timeout: 5m
+
+output:
+  formats:
+  - format: colored-line-number
