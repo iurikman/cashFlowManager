@@ -1,11 +1,13 @@
 package rest
 
 import (
-	"cashFlowManager/internal/models"
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
+
+	"github.com/iurikman/cashFlowManager/internal/models"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type service interface {

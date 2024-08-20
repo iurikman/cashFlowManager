@@ -18,33 +18,37 @@ const (
 	gracefulShutdownTimeout = 5 * time.Second
 )
 
-type Config struct {
+type ServerConfig struct {
 	BindAddress string
 }
 
 type Server struct {
-	config  Config
-	service service
-	key     *rsa.PublicKey
-	router  *chi.Mux
-	server  *http.Server
+	serverConfig ServerConfig
+	service      service
+	key          *rsa.PublicKey
+	router       *chi.Mux
+	server       *http.Server
 }
 
-func NewServer(config Config, service service, key *rsa.PublicKey) *Server {
+func NewServer(
+	serverConfig ServerConfig,
+	service service,
+	key *rsa.PublicKey,
+) (*Server, error) {
 	router := chi.NewRouter()
 
 	return &Server{
-		config:  config,
-		service: service,
-		router:  router,
-		key:     key,
+		serverConfig: serverConfig,
+		service:      service,
+		router:       router,
+		key:          key,
 		server: &http.Server{
-			Addr:              config.BindAddress,
+			Addr:              serverConfig.BindAddress,
 			Handler:           router,
 			ReadHeaderTimeout: readHeaderTimeout,
 			MaxHeaderBytes:    maxHeaderBytes,
 		},
-	}
+	}, nil
 }
 
 func (s *Server) Start(ctx context.Context) error {
@@ -71,7 +75,7 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 func (s *Server) configRouter() {
-	//	s.router.Route("/api/v1", func(r chi.Router) {
-	//		r.Post("/", s.createWallet)
-	//	})
+	s.router.Route("/api/v1", func(r chi.Router) {
+		r.Get("/", s.createWallet)
+	})
 }
