@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	userUpdatesTopic = "user_updates"
+	userUpdatesTopic = "users_updates"
 )
 
 type Consumer struct {
@@ -25,8 +25,12 @@ func NewConsumer(db *store.Postgres) *Consumer {
 	cfg := config.NewConfig()
 
 	return &Consumer{
-		reader: kafka.NewReader(kafka.ReaderConfig{Brokers: cfg.KafkaBrokers, Topic: userUpdatesTopic}),
-		db:     db,
+		reader: kafka.NewReader(kafka.ReaderConfig{
+			Brokers: cfg.KafkaBrokers,
+			Topic:   userUpdatesTopic,
+			GroupID: cfg.KafkaGroupID,
+		}),
+		db: db,
 	}
 }
 
@@ -42,7 +46,7 @@ func (c *Consumer) Start(ctx context.Context) error {
 		default:
 			message, err := c.reader.ReadMessage(ctx)
 			if err != nil {
-				log.Warnf("failed to read message from Kafka: %s", err)
+				log.Warnf("failed to read message from Kafka (c.reader.ReadMessage(ctx) err): %s", err)
 
 				continue
 			}
@@ -55,6 +59,8 @@ func (c *Consumer) Start(ctx context.Context) error {
 
 			if err = json.NewDecoder(bytes.NewReader(message.Value)).Decode(&user); err != nil {
 				log.Warnf("failed to decode message from Kafka: %s", err)
+
+				continue
 			}
 
 			if err = c.db.UpsertUser(ctx, user); err != nil {
