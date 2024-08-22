@@ -101,4 +101,78 @@ func (s *IntegrationTestSuite) TestWallets() {
 			s.Require().Equal(http.StatusNotFound, resp.StatusCode)
 		})
 	})
+
+	s.Run("PATCH", func() {
+		s.Run("201/statusOK", func() {
+			updatedWallet := new(models.Wallet)
+			newWalletData := models.WalletDTO{
+				Owner:    uuid.New(),
+				Currency: "EURO",
+				Balance:  100,
+			}
+			resp := s.sendRequest(
+				context.Background(),
+				http.MethodPatch,
+				"/"+testWalletId.String(),
+				newWalletData,
+				&rest.HTTPResponse{Data: &updatedWallet},
+			)
+			s.Require().Equal(http.StatusOK, resp.StatusCode)
+			s.Require().Equal(newWalletData.Owner, updatedWallet.Owner)
+			s.Require().Equal(newWalletData.Currency, updatedWallet.Currency)
+			s.Require().Equal(newWalletData.Balance, updatedWallet.Balance)
+		})
+		s.Run("400/statusBadRequest", func() {
+			updatedWallet := new(models.Wallet)
+
+			resp := s.sendRequest(
+				context.Background(),
+				http.MethodPatch,
+				"/"+testWalletId.String(),
+				"badRequest",
+				&rest.HTTPResponse{Data: &updatedWallet},
+			)
+			s.Require().Equal(http.StatusBadRequest, resp.StatusCode)
+		})
+		s.Run("404/statusNotFound", func() {
+			updatedWallet := new(models.Wallet)
+			id := uuid.New().String()
+			newWalletData := models.WalletDTO{
+				Owner:    uuid.New(),
+				Currency: "EURO",
+				Balance:  100,
+			}
+			resp := s.sendRequest(
+				context.Background(),
+				http.MethodPatch,
+				"/"+id,
+				newWalletData,
+				&rest.HTTPResponse{Data: &updatedWallet},
+			)
+			s.Require().Equal(http.StatusNotFound, resp.StatusCode)
+		})
+	})
+	s.Run("DELETE", func() {
+		s.Run("404/statusNotFound", func() {
+			id := uuid.New()
+			resp := s.sendRequest(
+				context.Background(),
+				http.MethodDelete,
+				"/"+id.String(),
+				nil,
+				nil,
+			)
+			s.Require().Equal(http.StatusNotFound, resp.StatusCode)
+		})
+		s.Run("204/statusNoContent", func() {
+			resp := s.sendRequest(
+				context.Background(),
+				http.MethodDelete,
+				"/"+testWalletId.String(),
+				nil,
+				nil,
+			)
+			s.Require().Equal(http.StatusNoContent, resp.StatusCode)
+		})
+	})
 }
