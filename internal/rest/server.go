@@ -76,5 +76,7 @@ func (s *Server) configRouter() {
 	s.router.Route("/api/v1", func(r chi.Router) {
 		r.Post("/", s.createWallet)
 		r.Get("/{id}", s.getWalletByID)
+		r.Patch("/{id}", s.updateWallet)
+		r.Delete("/{id}", s.deleteWallet)
 	})
 }
