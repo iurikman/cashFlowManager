@@ -9,9 +9,9 @@ CREATE TABLE users (
 
 CREATE TABLE wallets (
     id uuid primary key,
-    owner uuid references users (id),
+    owner uuid,
     currency varchar,
-    balance varchar,
+    balance float,
     created_at timestamp,
     deleted bool
 );

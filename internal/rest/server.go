@@ -33,7 +33,6 @@ type Server struct {
 func NewServer(
 	serverConfig ServerConfig,
 	service service,
-	key *rsa.PublicKey,
 ) (*Server, error) {
 	router := chi.NewRouter()
 
@@ -41,7 +40,6 @@ func NewServer(
 		serverConfig: serverConfig,
 		service:      service,
 		router:       router,
-		key:          key,
 		server: &http.Server{
 			Addr:              serverConfig.BindAddress,
 			Handler:           router,
@@ -76,6 +74,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 func (s *Server) configRouter() {
 	s.router.Route("/api/v1", func(r chi.Router) {
-		r.Get("/", s.createWallet)
+		r.Post("/", s.createWallet)
+		r.Get("/{id}", s.getWalletByID)
 	})
 }
