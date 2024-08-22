@@ -17,11 +17,11 @@ type Config struct {
 	PostgresUser     string `env:"POSTGRES_USER" env-default:"admin"`
 	PostgresPassword string `env:"POSTGRES_PASSWORD" env-default:"admin"`
 
-	KafkaBrokers  []string `env:"KAFKA_BROKERS" env-default:"127.0.0.1:9094"`
+	KafkaBrokers  []string `env:"KAFKA_BROKERS" env-default:"127.0.0.1:9092"`
 	KafkaTopic    string   `env:"KAFKA_TOPIC" env-default:"users_updates"`
 	KafkaGroupID  string   `env:"KAFKA_GROUP_ID" env-default:"users_group_id"`
 	KafkaBalancer string   `env:"KAFKA_BALANCER" env-default:"least_bytes"`
-	KafkaAddress  string   `env:"KAFKA_ADDRESS" env-default:"127.0.0.1:9094"`
+	KafkaAddress  string   `env:"KAFKA_ADDRESS" env-default:"127.0.0.1:9092"`
 }
 
 func NewConfig() Config {

@@ -11,7 +11,7 @@ import (
 func (p *Postgres) UpsertUser(ctx context.Context, user models.User) error {
 	query := `	INSERT INTO users (id, name, created_at, deleted) VALUES ($1, $2, $3, $4) 
 				ON CONFLICT (id) DO UPDATE 
-				SET name = $2, updated_at = now(), deleted = $4;
+				SET name = $2, deleted = $4;
 				`
 
 	_, err := p.db.Exec(

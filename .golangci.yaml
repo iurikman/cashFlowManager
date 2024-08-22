@@ -29,6 +29,7 @@ linters:
     - revive
     - godox
     - unused
+    - err113
 
 run:
   timeout: 5m
