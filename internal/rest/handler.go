@@ -16,6 +16,8 @@ import (
 type service interface {
 	CreateWallet(context context.Context, wallet models.Wallet) (*models.Wallet, error)
 	GetWalletByID(ctx context.Context, id uuid.UUID) (*models.Wallet, error)
+	UpdateWallet(context context.Context, id uuid.UUID, wallet models.WalletDTO) (*models.Wallet, error)
+	DeleteWallet(context context.Context, id uuid.UUID) error
 }
 
 type HTTPResponse struct {
@@ -74,6 +76,64 @@ func (s *Server) getWalletByID(w http.ResponseWriter, r *http.Request) {
 	writeOkResponse(w, http.StatusOK, wallet)
 }
 
+func (s *Server) updateWallet(w http.ResponseWriter, r *http.Request) {
+	var walletDTO models.WalletDTO
+
+	walletID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewDecoder(r.Body).Decode(&walletDTO); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	updatedWallet, err := s.service.UpdateWallet(r.Context(), walletID, walletDTO)
+
+	switch {
+	case errors.Is(err, models.ErrWalletNotFound):
+		writeErrorResponse(w, http.StatusNotFound, err.Error())
+
+		return
+	case err != nil:
+		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+
+		return
+	}
+
+	writeOkResponse(w, http.StatusOK, updatedWallet)
+}
+
+func (s *Server) deleteWallet(w http.ResponseWriter, r *http.Request) {
+	walletID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	err = s.service.DeleteWallet(r.Context(), walletID)
+
+	switch {
+	case errors.Is(err, models.ErrWalletNotFound):
+		writeErrorResponse(w, http.StatusNotFound, err.Error())
+
+		return
+	case err != nil:
+		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func writeOkResponse(w http.ResponseWriter, statusCode int, respData any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
@@ -88,8 +148,6 @@ func writeErrorResponse(w http.ResponseWriter, statusCode int, description strin
 	w.WriteHeader(statusCode)
 
 	if err := json.NewEncoder(w).Encode(HTTPResponse{Error: description}); err != nil {
-		log.Panicf("json.NewEncoder(w).Encode(HTTPResponse{Error: description}) err: %s", err)
-
-		return
+		log.Warnf("json.NewEncoder(w).Encode(HTTPResponse{Error: description}) err: %s", err)
 	}
 }
