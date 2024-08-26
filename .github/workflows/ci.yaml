@@ -27,3 +27,12 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
       - run: go build ./cmd/service/main.go
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+      - run: make test

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os/signal"
 	"syscall"
 
@@ -12,9 +13,11 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/iurikman/cashFlowManager/internal/rest"
 	_ "github.com/jackc/pgx/v5"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	migrate "github.com/rubenv/sql-migrate"
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
@@ -44,10 +47,26 @@ func main() {
 
 	consumer := broker.NewConsumer(db)
 
-	err = consumer.Start(ctx)
+	srv, err := rest.NewServer(rest.ServerConfig{BindAddress: cfg.BindAddress}, svc)
 	if err != nil {
-		log.Panicf("consumer.StartConsumer(ctx) err: %v", err)
+		log.Panicf("rest.NewServer(cfg) err: %v", err)
 	}
 
-	log.Infof("sercise: %v", svc)
+	eg, ctx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		err = consumer.Start(ctx)
+
+		return fmt.Errorf("consumer stopped: %w", err)
+	})
+
+	eg.Go(func() error {
+		err = srv.Start(ctx)
+
+		return fmt.Errorf("service stopped: %w", err)
+	})
+
+	if err := eg.Wait(); err != nil {
+		log.Panicf("eg.Wait() err: %v", err)
+	}
 }

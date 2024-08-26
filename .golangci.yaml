@@ -33,7 +33,7 @@ linters:
 
 run:
   timeout: 5m
-
+  tests: false
 output:
   formats:
   - format: colored-line-number

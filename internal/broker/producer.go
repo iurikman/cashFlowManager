@@ -22,13 +22,6 @@ type Producer struct {
 func NewProducer() *Producer {
 	cfg := config.NewConfig()
 
-	balancer, err := GetBalancer(cfg.KafkaBalancer)
-	if err != nil {
-		log.Warnf("Failed to create kafka balancer: %v", err)
-
-		return nil
-	}
-
 	address, err := net.ResolveTCPAddr("tcp", cfg.KafkaAddress)
 	if err != nil {
 		log.Warnf("Failed to resolve Kafka address: %s", err)
@@ -39,7 +32,7 @@ func NewProducer() *Producer {
 	return &Producer{kafkaWriter: &kafka.Writer{
 		Addr:         address,
 		Topic:        userUpdatesTopic,
-		Balancer:     balancer,
+		Balancer:     &kafka.LeastBytes{},
 		RequiredAcks: 1,
 		Async:        true,
 	}}
@@ -87,17 +80,4 @@ func (p *Producer) Stop() error {
 	log.Println("producer stopped")
 
 	return nil
-}
-
-func GetBalancer(name string) (kafka.Balancer, error) {
-	switch name {
-	case "round_robin":
-		return &kafka.RoundRobin{}, nil
-	case "least_conn":
-		return &kafka.LeastBytes{}, nil
-	case "least_bytes":
-		return &kafka.LeastBytes{}, nil
-	default:
-		return nil, fmt.Errorf("unknown balancer: %s", name)
-	}
 }

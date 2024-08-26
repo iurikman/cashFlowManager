@@ -15,6 +15,22 @@ type Wallet struct {
 	Deleted   bool      `json:"deleted"`
 }
 
+func (w Wallet) Validate() error {
+	if w.Currency == "" {
+		return ErrCurrencyIsEmpty
+	}
+
+	if w.Balance < 0 {
+		return ErrBalanceBelowZero
+	}
+
+	if w.Owner == uuid.Nil {
+		return ErrOwnerIsEmpty
+	}
+
+	return nil
+}
+
 type User struct {
 	ID        uuid.UUID `json:"id"`
 	Username  string    `json:"username"`
