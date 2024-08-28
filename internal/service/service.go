@@ -21,6 +21,8 @@ func NewService(db db) *Service {
 type db interface {
 	CreateWallet(ctx context.Context, wallet models.Wallet) (*models.Wallet, error)
 	GetWalletByID(ctx context.Context, id uuid.UUID) (*models.Wallet, error)
+	UpdateWallet(ctx context.Context, id uuid.UUID, dto models.WalletDTO) (*models.Wallet, error)
+	DeleteWallet(ctx context.Context, id uuid.UUID) error
 }
 
 func (s *Service) CreateWallet(ctx context.Context, wallet models.Wallet) (*models.Wallet, error) {
@@ -43,4 +45,21 @@ func (s *Service) GetWalletByID(ctx context.Context, id uuid.UUID) (*models.Wall
 	}
 
 	return wallet, nil
+}
+
+func (s *Service) UpdateWallet(ctx context.Context, id uuid.UUID, walletDTO models.WalletDTO) (*models.Wallet, error) {
+	updatedWallet, err := s.db.UpdateWallet(ctx, id, walletDTO)
+	if err != nil {
+		return nil, fmt.Errorf("s.db.UpdateWallet(id, walletDTO) err: %w", err)
+	}
+
+	return updatedWallet, nil
+}
+
+func (s *Service) DeleteWallet(ctx context.Context, id uuid.UUID) error {
+	if err := s.db.DeleteWallet(ctx, id); err != nil {
+		return fmt.Errorf("s.db.DeleteWallet(id) err: %w", err)
+	}
+
+	return nil
 }

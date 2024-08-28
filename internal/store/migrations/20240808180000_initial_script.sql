@@ -13,6 +13,7 @@ CREATE TABLE wallets (
     currency varchar,
     balance float,
     created_at timestamp,
+    updated_at timestamp,
     deleted bool
 );
 
