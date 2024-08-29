@@ -16,6 +16,8 @@ import (
 func (p *Postgres) CreateWallet(ctx context.Context, wallet models.Wallet) (*models.Wallet, error) {
 	createdWallet := new(models.Wallet)
 
+	timeNow := time.Now()
+
 	query := `INSERT INTO wallets (id, owner, currency, balance, created_at, updated_at, deleted) 
 				VALUES ($1, $2, $3, $4, $5, $6, $7)
 				RETURNING id, owner, currency, balance, created_at, updated_at, deleted
@@ -24,12 +26,12 @@ func (p *Postgres) CreateWallet(ctx context.Context, wallet models.Wallet) (*mod
 	err := p.db.QueryRow(
 		ctx,
 		query,
-		wallet.ID,
+		uuid.New(),
 		wallet.Owner,
 		wallet.Currency,
 		wallet.Balance,
-		time.Now(),
-		time.Now(),
+		timeNow,
+		timeNow,
 		wallet.Deleted,
 	).Scan(
 		&createdWallet.ID,
@@ -117,15 +119,44 @@ func (p *Postgres) UpdateWallet(ctx context.Context, id uuid.UUID, walletDTO mod
 	return &updatedWallet, nil
 }
 
+func (p *Postgres) updateWalletBalance(ctx context.Context, tx pgx.Tx, id uuid.UUID, balance float64) error {
+	var updatedWallet models.Wallet
+
+	query := `	UPDATE wallets SET balance = balance + $2, updated_at = $3
+                WHERE id = $1 and deleted = false 
+				RETURNING id, balance
+				`
+
+	err := tx.QueryRow(
+		ctx,
+		query,
+		id,
+		balance,
+		time.Now(),
+	).Scan(
+		&updatedWallet.ID,
+		&updatedWallet.Balance,
+	)
+
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return models.ErrWalletNotFound
+	case err != nil:
+		return fmt.Errorf("updating wallet error: %w", err)
+	}
+
+	return nil
+}
+
 func (p *Postgres) DeleteWallet(ctx context.Context, id uuid.UUID) error {
 	query := `UPDATE wallets SET deleted = true WHERE id = $1 and deleted = false`
 
 	result, err := p.db.Exec(ctx, query, id)
-	if result.RowsAffected() == 0 {
-		return models.ErrWalletNotFound
-	}
 
-	if err != nil {
+	switch {
+	case result.RowsAffected() == 0:
+		return models.ErrWalletNotFound
+	case err != nil:
 		return fmt.Errorf("deleting wallet error: %w", err)
 	}
 

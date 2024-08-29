@@ -5,17 +5,24 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/iurikman/cashFlowManager/internal/converter"
 	"github.com/iurikman/cashFlowManager/internal/models"
 )
 
 type Service struct {
-	db db
+	db          db
+	xrConverter xrConverter
 }
 
-func NewService(db db) *Service {
+func NewService(db db, xrConverter xrConverter) *Service {
 	return &Service{
-		db: db,
+		db:          db,
+		xrConverter: xrConverter,
 	}
+}
+
+type xrConverter interface {
+	Convert(ctx context.Context, currencyFrom, currencyTo converter.Currency) (float64, error)
 }
 
 type db interface {
@@ -23,13 +30,12 @@ type db interface {
 	GetWalletByID(ctx context.Context, id uuid.UUID) (*models.Wallet, error)
 	UpdateWallet(ctx context.Context, id uuid.UUID, dto models.WalletDTO) (*models.Wallet, error)
 	DeleteWallet(ctx context.Context, id uuid.UUID) error
+	Withdraw(ctx context.Context, transaction models.Transaction) error
+	Deposit(ctx context.Context, transaction models.Transaction) error
+	Transfer(ctx context.Context, transaction models.Transaction, initAmount float64) error
 }
 
 func (s *Service) CreateWallet(ctx context.Context, wallet models.Wallet) (*models.Wallet, error) {
-	if err := wallet.Validate(); err != nil {
-		return nil, fmt.Errorf("wallet.Validate() err: %w", err)
-	}
-
 	createdWallet, err := s.db.CreateWallet(ctx, wallet)
 	if err != nil {
 		return nil, fmt.Errorf("s.db.CreateWallet(ctx, wallet) err: %w", err)
@@ -59,6 +65,92 @@ func (s *Service) UpdateWallet(ctx context.Context, id uuid.UUID, walletDTO mode
 func (s *Service) DeleteWallet(ctx context.Context, id uuid.UUID) error {
 	if err := s.db.DeleteWallet(ctx, id); err != nil {
 		return fmt.Errorf("s.db.DeleteWallet(id) err: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) Withdraw(ctx context.Context, transaction models.Transaction) error {
+	wallet, err := s.db.GetWalletByID(ctx, transaction.WalletID)
+	if err != nil {
+		return fmt.Errorf("s.db.GetWalletByID(walletID) err: %w", err)
+	}
+
+	if wallet.Currency != transaction.Currency {
+		convertedAmount, err := s.xrConverter.Convert(
+			ctx,
+			converter.Currency{Amount: transaction.Amount, Name: transaction.Currency},
+			converter.Currency{Amount: wallet.Balance, Name: wallet.Currency},
+		)
+		if err != nil {
+			return fmt.Errorf("s.xrConverter.Convert(...) err: %w", err)
+		}
+
+		transaction.Amount = convertedAmount
+	}
+
+	err = s.db.Withdraw(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("s.db.Withdraw() err: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) Deposit(ctx context.Context, transaction models.Transaction) error {
+	wallet, err := s.GetWalletByID(ctx, transaction.WalletID)
+	if err != nil {
+		return fmt.Errorf("s.db.GetWalletByID(walletID) err: %w", err)
+	}
+
+	if wallet.Currency != transaction.Currency {
+		convertedAmount, err := s.xrConverter.Convert(
+			ctx,
+			converter.Currency{Amount: transaction.Amount, Name: transaction.Currency},
+			converter.Currency{Amount: wallet.Balance, Name: wallet.Currency},
+		)
+		if err != nil {
+			return fmt.Errorf("s.xrConverter.Convert(...) err: %w", err)
+		}
+
+		transaction.Amount = convertedAmount
+	}
+
+	err = s.db.Deposit(ctx, transaction)
+	if err != nil {
+		return fmt.Errorf("s.db.Deposit() err: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) Transfer(ctx context.Context, transaction models.Transaction, initAmount float64) error {
+	walletFrom, err := s.GetWalletByID(ctx, transaction.WalletID)
+	if err != nil {
+		return fmt.Errorf("s.db.GetWalletByID(walletID) err: %w", err)
+	}
+
+	walletTo, err := s.GetWalletByID(ctx, transaction.TargetWalletID)
+	if err != nil {
+		return fmt.Errorf("s.db.GetWalletByID(walletID) err: %w", err)
+	}
+
+	if walletFrom.Currency != walletTo.Currency {
+		convertedAmount, err := s.xrConverter.Convert(
+			ctx,
+			converter.Currency{Amount: transaction.Amount, Name: walletFrom.Currency},
+			converter.Currency{Amount: walletTo.Balance, Name: walletTo.Currency},
+		)
+		if err != nil {
+			return fmt.Errorf("s.xrConverter.Convert(...) err: %w", err)
+		}
+
+		transaction.Amount = convertedAmount
+	}
+
+	err = s.db.Transfer(ctx, transaction, initAmount)
+	if err != nil {
+		return fmt.Errorf("s.db.Transfer() err: %w", err)
 	}
 
 	return nil

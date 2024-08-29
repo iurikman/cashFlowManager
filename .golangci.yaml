@@ -9,13 +9,14 @@ linters-settings:
       - fmt.Print.*
   gci:
     skip-generated: true
+  gofmt:
+    simplify: true
 
 linters:
   enable-all: true
 
   disable:
     - gci
-    - gofmt
     - funlen
     - depguard
     - exhaustive
@@ -30,10 +31,12 @@ linters:
     - godox
     - unused
     - err113
+    - exportloopref
 
 run:
   timeout: 5m
   tests: false
+
 output:
   formats:
   - format: colored-line-number

@@ -12,15 +12,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type ServerConfig struct {
+	BindAddress string
+}
+
 const (
 	readHeaderTimeout       = 10 * time.Second
 	maxHeaderBytes          = 1 << 20
 	gracefulShutdownTimeout = 5 * time.Second
 )
-
-type ServerConfig struct {
-	BindAddress string
-}
 
 type Server struct {
 	serverConfig ServerConfig
@@ -32,13 +32,13 @@ type Server struct {
 
 func NewServer(
 	serverConfig ServerConfig,
-	service service,
+	srv service,
 ) (*Server, error) {
 	router := chi.NewRouter()
 
 	return &Server{
 		serverConfig: serverConfig,
-		service:      service,
+		service:      srv,
 		router:       router,
 		server: &http.Server{
 			Addr:              serverConfig.BindAddress,
@@ -78,5 +78,9 @@ func (s *Server) configRouter() {
 		r.Get("/{id}", s.getWalletByID)
 		r.Patch("/{id}", s.updateWallet)
 		r.Delete("/{id}", s.deleteWallet)
+
+		r.Put("/withdraw", s.withdraw)
+		r.Put("/transfer", s.transfer)
+		r.Put("/deposit", s.deposit)
 	})
 }
