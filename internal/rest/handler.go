@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/iurikman/cashFlowManager/internal/converter"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -18,6 +19,9 @@ type service interface {
 	GetWalletByID(ctx context.Context, id uuid.UUID) (*models.Wallet, error)
 	UpdateWallet(context context.Context, id uuid.UUID, wallet models.WalletDTO) (*models.Wallet, error)
 	DeleteWallet(context context.Context, id uuid.UUID) error
+	Deposit(ctx context.Context, transaction models.Transaction) (*models.Transaction, error)
+	Transfer(ctx context.Context, transaction models.Transaction) (*models.Transaction, error)
+	Withdraw(ctx context.Context, transaction models.Transaction) (*models.Transaction, error)
 }
 
 type HTTPResponse struct {
@@ -36,14 +40,14 @@ func (s *Server) createWallet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createdUser, err := s.service.CreateWallet(r.Context(), wallet)
-
-	switch {
-	case errors.Is(err, models.ErrDuplicateWallet):
-		writeErrorResponse(w, http.StatusConflict, err.Error())
+	if err := wallet.Validate(); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 
 		return
-	case err != nil:
+	}
+
+	createdUser, err := s.service.CreateWallet(r.Context(), wallet)
+	if err != nil {
 		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
 
 		return
@@ -132,6 +136,127 @@ func (s *Server) deleteWallet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) deposit(w http.ResponseWriter, r *http.Request) {
+	var transaction models.Transaction
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewDecoder(r.Body).Decode(&transaction); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	if err := transaction.Validate(); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	wallet, err := s.service.GetWalletByID(r.Context(), transaction.WalletID)
+	if err != nil {
+		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+
+		return
+	}
+
+	if wallet.Currency != transaction.Currency {
+		converterValute := converter.NewConverter(
+			converter.Currency{Amount: transaction.Amount, Name: transaction.Currency},
+			converter.Currency{Amount: wallet.Balance, Name: wallet.Currency})
+
+		convertedAmount, err := converterValute.Convert(r.Context())
+		if err != nil {
+			writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+
+			return
+		}
+
+		transaction.Amount = convertedAmount
+	}
+
+	executedTransaction, err := s.service.Deposit(r.Context(), transaction)
+
+	switch {
+	case errors.Is(err, models.ErrWalletNotFound):
+		writeErrorResponse(w, http.StatusNotFound, err.Error())
+
+		return
+	case err != nil:
+		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+
+		return
+	}
+
+	writeOkResponse(w, http.StatusOK, executedTransaction)
+}
+
+func (s *Server) transfer(w http.ResponseWriter, r *http.Request) {
+	var transaction models.Transaction
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewDecoder(r.Body).Decode(&transaction); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	if err := transaction.Validate(); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	executedTransaction, err := s.service.Transfer(r.Context(), transaction)
+
+	switch {
+	case errors.Is(err, models.ErrWalletNotFound):
+		writeErrorResponse(w, http.StatusNotFound, err.Error())
+
+		return
+	case err != nil:
+		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+
+		return
+	}
+
+	writeOkResponse(w, http.StatusOK, executedTransaction)
+}
+
+func (s *Server) withdraw(w http.ResponseWriter, r *http.Request) {
+	var transaction models.Transaction
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewDecoder(r.Body).Decode(&transaction); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	if err := transaction.Validate(); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	executedTransaction, err := s.service.Withdraw(r.Context(), transaction)
+
+	switch {
+	case errors.Is(err, models.ErrWalletNotFound):
+		writeErrorResponse(w, http.StatusNotFound, err.Error())
+
+		return
+	case err != nil:
+		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+
+		return
+	}
+
+	writeOkResponse(w, http.StatusOK, executedTransaction)
 }
 
 func writeOkResponse(w http.ResponseWriter, statusCode int, respData any) {

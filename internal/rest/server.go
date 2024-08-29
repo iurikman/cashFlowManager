@@ -78,5 +78,9 @@ func (s *Server) configRouter() {
 		r.Get("/{id}", s.getWalletByID)
 		r.Patch("/{id}", s.updateWallet)
 		r.Delete("/{id}", s.deleteWallet)
+
+		r.Put("/withdraw", s.withdraw)
+		r.Put("/transfer", s.transfer)
+		r.Put("/deposit", s.deposit)
 	})
 }

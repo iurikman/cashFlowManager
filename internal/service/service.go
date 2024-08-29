@@ -23,13 +23,12 @@ type db interface {
 	GetWalletByID(ctx context.Context, id uuid.UUID) (*models.Wallet, error)
 	UpdateWallet(ctx context.Context, id uuid.UUID, dto models.WalletDTO) (*models.Wallet, error)
 	DeleteWallet(ctx context.Context, id uuid.UUID) error
+	Withdraw(ctx context.Context, transaction models.Transaction) (*models.Transaction, error)
+	Deposit(ctx context.Context, transaction models.Transaction) (*models.Transaction, error)
+	Transfer(ctx context.Context, transaction models.Transaction) (*models.Transaction, error)
 }
 
 func (s *Service) CreateWallet(ctx context.Context, wallet models.Wallet) (*models.Wallet, error) {
-	if err := wallet.Validate(); err != nil {
-		return nil, fmt.Errorf("wallet.Validate() err: %w", err)
-	}
-
 	createdWallet, err := s.db.CreateWallet(ctx, wallet)
 	if err != nil {
 		return nil, fmt.Errorf("s.db.CreateWallet(ctx, wallet) err: %w", err)
@@ -62,4 +61,31 @@ func (s *Service) DeleteWallet(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+func (s *Service) Withdraw(ctx context.Context, transaction models.Transaction) (*models.Transaction, error) {
+	executedTransaction, err := s.db.Withdraw(ctx, transaction)
+	if err != nil {
+		return nil, fmt.Errorf("s.db.Withdraw() err: %w", err)
+	}
+
+	return executedTransaction, nil
+}
+
+func (s *Service) Deposit(ctx context.Context, transaction models.Transaction) (*models.Transaction, error) {
+	executedTransaction, err := s.db.Deposit(ctx, transaction)
+	if err != nil {
+		return nil, fmt.Errorf("s.db.Deposit() err: %w", err)
+	}
+
+	return executedTransaction, nil
+}
+
+func (s *Service) Transfer(ctx context.Context, transaction models.Transaction) (*models.Transaction, error) {
+	executedTransaction, err := s.db.Transfer(ctx, transaction)
+	if err != nil {
+		return nil, fmt.Errorf("s.db.Transfer() err: %w", err)
+	}
+
+	return executedTransaction, nil
 }

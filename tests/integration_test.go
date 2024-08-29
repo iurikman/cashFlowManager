@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/iurikman/cashFlowManager/internal/config"
+	"github.com/iurikman/cashFlowManager/internal/models"
 	"github.com/iurikman/cashFlowManager/internal/rest"
 	"github.com/iurikman/cashFlowManager/internal/service"
 	"github.com/iurikman/cashFlowManager/internal/store"
@@ -21,11 +22,12 @@ const bindAddress = "http://localhost:8080/api/v1"
 
 type IntegrationTestSuite struct {
 	suite.Suite
-	cancel       context.CancelFunc
-	store        *store.Postgres
-	service      *service.Service
-	server       *rest.Server
-	testWalletID uuid.UUID
+	cancel        context.CancelFunc
+	store         *store.Postgres
+	service       *service.Service
+	server        *rest.Server
+	ownersID      []uuid.UUID
+	listOfWallets []models.Wallet
 }
 
 func TestIntegrationTestSuite(t *testing.T) {
