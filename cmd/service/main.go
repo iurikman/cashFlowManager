@@ -6,6 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/iurikman/cashFlowManager/internal/converter"
+
 	"github.com/iurikman/cashFlowManager/internal/broker"
 	"github.com/iurikman/cashFlowManager/internal/config"
 	"github.com/iurikman/cashFlowManager/internal/service"
@@ -47,7 +49,9 @@ func main() {
 
 	consumer := broker.NewConsumer(db)
 
-	srv, err := rest.NewServer(rest.ServerConfig{BindAddress: cfg.BindAddress}, svc)
+	xrConverter := converter.NewConverter(cfg.XRHost)
+
+	srv, err := rest.NewServer(rest.ServerConfig{BindAddress: cfg.BindAddress}, svc, xrConverter)
 	if err != nil {
 		log.Panicf("rest.NewServer(cfg) err: %v", err)
 	}

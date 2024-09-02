@@ -57,7 +57,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	err = s.store.Truncate(ctx, "users", "wallets")
 	s.Require().NoError(err)
 
-	s.service = service.NewService(db)
+	s.service = service.NewService(db, MockConverter{})
 	s.server, err = rest.NewServer(rest.ServerConfig{BindAddress: cfg.BindAddress}, s.store)
 	s.Require().NoError(err)
 

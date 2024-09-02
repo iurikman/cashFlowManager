@@ -15,11 +15,10 @@ import (
 	"golang.org/x/text/transform"
 )
 
-const cbrURL = "http://www.cbr.ru/scripts/XML_dynamic.asp?date_req1="
+const cbrPATH = "/scripts/XML_dynamic.asp?date_req1="
 
 type Converter struct {
-	currencyFrom Currency
-	currencyTo   Currency
+	Host string
 }
 
 type ValCurs struct {
@@ -43,25 +42,24 @@ type Currency struct {
 	Name   string
 }
 
-func NewConverter(currencyFrom, currencyTo Currency) *Converter {
+func NewConverter(host string) *Converter {
 	return &Converter{
-		currencyFrom: currencyFrom,
-		currencyTo:   currencyTo,
+		Host: host,
 	}
 }
 
-func (c *Converter) Convert(ctx context.Context) (float64, error) {
-	codeCurrFrom := models.AllowedCurrencies[c.currencyFrom.Name]
-	codeCurrTo := models.AllowedCurrencies[c.currencyTo.Name]
+func (c *Converter) Convert(ctx context.Context, currencyFrom, currencyTo Currency) (float64, error) {
+	codeCurrFrom := models.AllowedCurrencies[currencyFrom.Name]
+	codeCurrTo := models.AllowedCurrencies[currencyTo.Name]
 
 	switch {
-	case c.currencyTo.Name == "RUR":
+	case currencyTo.Name == "RUR":
 		changeRateCurrFrom, err := c.fetchRate(ctx, codeCurrFrom)
 		if err != nil {
 			return 0, fmt.Errorf("c.fetchRate(codeCurrFrom) err: %w", err)
 		}
 
-		result := c.currencyFrom.Amount * changeRateCurrFrom
+		result := currencyFrom.Amount * changeRateCurrFrom
 
 		return result, nil
 	default:
@@ -75,7 +73,7 @@ func (c *Converter) Convert(ctx context.Context) (float64, error) {
 			return 0, fmt.Errorf("c.fetchRate(codeCurrTo) err: %w", err)
 		}
 
-		result := (c.currencyFrom.Amount * changeRateCurrFrom) / changeRateCurrTo
+		result := (currencyFrom.Amount * changeRateCurrFrom) / changeRateCurrTo
 
 		return result, nil
 	}
@@ -85,7 +83,7 @@ func (c *Converter) fetchRate(ctx context.Context, currencyCode string) (float64
 	date := time.Now().AddDate(0, 0, -2)
 	dateString := fmt.Sprintf("%02d/%02d/%d", date.Day(), date.Month(), date.Year())
 
-	reqURLString := cbrURL + dateString + "&date_req2=" + dateString + "&VAL_NM_RQ=" + currencyCode
+	reqURLString := c.Host + cbrPATH + dateString + "&date_req2=" + dateString + "&VAL_NM_RQ=" + currencyCode
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURLString, nil)
 	if err != nil {

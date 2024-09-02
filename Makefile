@@ -14,7 +14,6 @@ lint:
 	@echo 'Linting the project...'
 	gofumpt -w .
 	go mod tidy
-	golangci-lint run --fix
 	golangci-lint run --config .golangci.yaml
 test: up
 	go test -v ./...

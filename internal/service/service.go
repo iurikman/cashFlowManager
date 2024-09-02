@@ -3,18 +3,21 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/iurikman/cashFlowManager/internal/converter"
 
 	"github.com/google/uuid"
 	"github.com/iurikman/cashFlowManager/internal/models"
 )
 
 type Service struct {
-	db db
+	db        db
+	converter xrConverter
 }
 
-func NewService(db db) *Service {
+func NewService(db db, converter xrConverter) *Service {
 	return &Service{
-		db: db,
+		db:        db,
+		converter: converter,
 	}
 }
 
@@ -26,6 +29,10 @@ type db interface {
 	Withdraw(ctx context.Context, transaction models.Transaction) (*models.Transaction, error)
 	Deposit(ctx context.Context, transaction models.Transaction) (*models.Transaction, error)
 	Transfer(ctx context.Context, transaction models.Transaction) (*models.Transaction, error)
+}
+
+type xrConverter interface {
+	Convert(ctx context.Context, currencyFrom, currencyTo converter.Currency) (float64, error)
 }
 
 func (s *Service) CreateWallet(ctx context.Context, wallet models.Wallet) (*models.Wallet, error) {

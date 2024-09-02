@@ -6,11 +6,12 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/iurikman/cashFlowManager/internal/converter"
+
 	"github.com/iurikman/cashFlowManager/internal/models"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/iurikman/cashFlowManager/internal/converter"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -163,11 +164,11 @@ func (s *Server) deposit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if wallet.Currency != transaction.Currency {
-		converterValute := converter.NewConverter(
+		convertedAmount, err := s.converter.Convert(
+			r.Context(),
 			converter.Currency{Amount: transaction.Amount, Name: transaction.Currency},
-			converter.Currency{Amount: wallet.Balance, Name: wallet.Currency})
-
-		convertedAmount, err := converterValute.Convert(r.Context())
+			converter.Currency{Amount: wallet.Balance, Name: wallet.Currency},
+		)
 		if err != nil {
 			writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
 
