@@ -22,6 +22,8 @@ type Config struct {
 	KafkaGroupID  string   `env:"KAFKA_GROUP_ID" env-default:"users_group_id"`
 	KafkaBalancer string   `env:"KAFKA_BALANCER" env-default:"least_bytes"`
 	KafkaAddress  string   `env:"KAFKA_ADDRESS" env-default:"127.0.0.1:9092"`
+
+	XRConverterHost string `env:"XR_CONVERTER_HOST" env-default:"http://www.cbr.ru/"`
 }
 
 func NewConfig() Config {

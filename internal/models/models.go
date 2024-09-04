@@ -20,28 +20,41 @@ type WalletDTO struct {
 	Owner    uuid.UUID `json:"owner"`
 	Currency string    `json:"currency"`
 	Balance  float64   `json:"balance"`
-	Deleted  bool      `json:"deleted"`
 }
 
-func (w Wallet) Validate() error {
-	if w.Currency == "" {
-		return ErrCurrencyIsEmpty
+type Transaction struct {
+	TransactionID  uuid.UUID `json:"id"`
+	WalletID       uuid.UUID `json:"walletId"`
+	TargetWalletID uuid.UUID `json:"targetWalletId"`
+	Amount         float64   `json:"amount"`
+	Currency       string    `json:"currency"`
+	OperationType  string    `json:"transactionType"`
+	ExecutedAt     time.Time `json:"executedAt"`
+}
+
+func (t Transaction) Validate() error {
+	if t.WalletID == uuid.Nil {
+		return ErrWalletIDIsEmpty
 	}
 
-	if w.Balance < 0 {
-		return ErrBalanceBelowZero
+	if _, ok := AllowedCurrencies[t.Currency]; !ok {
+		return ErrCurrencyNotAllowed
 	}
 
-	if w.Owner == uuid.Nil {
-		return ErrOwnerIsEmpty
+	if t.Amount <= 0 {
+		return ErrAmountIsZero
+	}
+
+	if t.OperationType == "" {
+		return ErrTransactionTypeIsEmpty
 	}
 
 	return nil
 }
 
-func (w WalletDTO) ValidateWalletDTO() error {
-	if w.Currency == "" {
-		return ErrCurrencyIsEmpty
+func (w Wallet) Validate() error {
+	if _, ok := AllowedCurrencies[w.Currency]; !ok {
+		return ErrCurrencyNotAllowed
 	}
 
 	if w.Balance < 0 {
@@ -61,4 +74,12 @@ type User struct {
 	Wallets   []Wallet  `json:"wallets"`
 	CreatedAt time.Time `json:"createdAt"`
 	Deleted   bool      `json:"deleted"`
+}
+
+//nolint:gochecknoglobals
+var AllowedCurrencies = map[string]string{
+	"RUR": "",
+	"CHY": "R01375",
+	"AED": "R01230",
+	"INR": "R01270",
 }

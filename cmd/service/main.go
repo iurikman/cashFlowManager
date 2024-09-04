@@ -13,6 +13,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/iurikman/cashFlowManager/internal/converter"
 	"github.com/iurikman/cashFlowManager/internal/rest"
 	_ "github.com/jackc/pgx/v5"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -43,9 +44,9 @@ func main() {
 
 	log.Info("successful migration")
 
-	svc := service.NewService(db)
+	xrConverter := converter.NewConverter(cfg.XRConverterHost)
 
-	consumer := broker.NewConsumer(db)
+	svc := service.NewService(db, xrConverter)
 
 	srv, err := rest.NewServer(rest.ServerConfig{BindAddress: cfg.BindAddress}, svc)
 	if err != nil {
@@ -53,6 +54,8 @@ func main() {
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
+
+	consumer := broker.NewConsumer(db)
 
 	eg.Go(func() error {
 		err = consumer.Start(ctx)
