@@ -16,20 +16,16 @@ type Wallet struct {
 	Deleted   bool      `json:"deleted"`
 }
 
-type WalletDTO struct {
-	Owner    uuid.UUID `json:"owner"`
-	Currency string    `json:"currency"`
-	Balance  float64   `json:"balance"`
-}
-
 type Transaction struct {
-	TransactionID  uuid.UUID `json:"id"`
-	WalletID       uuid.UUID `json:"walletId"`
-	TargetWalletID uuid.UUID `json:"targetWalletId"`
-	Amount         float64   `json:"amount"`
-	Currency       string    `json:"currency"`
-	OperationType  string    `json:"transactionType"`
-	ExecutedAt     time.Time `json:"executedAt"`
+	TransactionID   uuid.UUID `json:"id"`
+	WalletID        uuid.UUID `json:"walletId"`
+	TargetWalletID  uuid.UUID `json:"targetWalletId"`
+	Amount          float64   `json:"amount"`
+	Currency        string    `json:"currency"`
+	ConvertedAmount float64   `json:"convertedAmount"`
+	ExRate          float64   `json:"exRate"`
+	OperationType   string    `json:"transactionType"`
+	ExecutedAt      time.Time `json:"executedAt"`
 }
 
 func (t Transaction) Validate() error {

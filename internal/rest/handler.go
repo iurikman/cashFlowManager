@@ -16,10 +16,10 @@ import (
 type service interface {
 	CreateWallet(context context.Context, wallet models.Wallet) (*models.Wallet, error)
 	GetWalletByID(ctx context.Context, id uuid.UUID) (*models.Wallet, error)
-	UpdateWallet(context context.Context, id uuid.UUID, wallet models.WalletDTO) (*models.Wallet, error)
+	UpdateWallet(context context.Context, id uuid.UUID, wallet models.Wallet) (*models.Wallet, error)
 	DeleteWallet(context context.Context, id uuid.UUID) error
 	Deposit(ctx context.Context, transaction models.Transaction) error
-	Transfer(ctx context.Context, transaction models.Transaction, initAmount float64) error
+	Transfer(ctx context.Context, transaction models.Transaction) error
 	Withdraw(ctx context.Context, transaction models.Transaction) error
 }
 
@@ -46,7 +46,13 @@ func (s *Server) createWallet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	createdUser, err := s.service.CreateWallet(r.Context(), wallet)
-	if err != nil {
+
+	switch {
+	case errors.Is(err, models.ErrUserNotFound):
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+
+		return
+	case err != nil:
 		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
 
 		return
@@ -80,7 +86,7 @@ func (s *Server) getWalletByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateWallet(w http.ResponseWriter, r *http.Request) {
-	var walletDTO models.WalletDTO
+	var wallet models.Wallet
 
 	walletID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -91,13 +97,13 @@ func (s *Server) updateWallet(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	if err := json.NewDecoder(r.Body).Decode(&walletDTO); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&wallet); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
-	updatedWallet, err := s.service.UpdateWallet(r.Context(), walletID, walletDTO)
+	updatedWallet, err := s.service.UpdateWallet(r.Context(), walletID, wallet)
 
 	switch {
 	case errors.Is(err, models.ErrWalletNotFound):
@@ -187,11 +193,15 @@ func (s *Server) transfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := s.service.Transfer(r.Context(), transaction, transaction.Amount)
+	err := s.service.Transfer(r.Context(), transaction)
 
 	switch {
 	case errors.Is(err, models.ErrWalletNotFound):
 		writeErrorResponse(w, http.StatusNotFound, err.Error())
+
+		return
+	case errors.Is(err, models.ErrBalanceBelowZero):
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 
 		return
 	case err != nil:
@@ -225,6 +235,10 @@ func (s *Server) withdraw(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, models.ErrWalletNotFound):
 		writeErrorResponse(w, http.StatusNotFound, err.Error())
+
+		return
+	case errors.Is(err, models.ErrBalanceBelowZero):
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 
 		return
 	case err != nil:

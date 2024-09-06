@@ -28,11 +28,11 @@ type xrConverter interface {
 type db interface {
 	CreateWallet(ctx context.Context, wallet models.Wallet) (*models.Wallet, error)
 	GetWalletByID(ctx context.Context, id uuid.UUID) (*models.Wallet, error)
-	UpdateWallet(ctx context.Context, id uuid.UUID, dto models.WalletDTO) (*models.Wallet, error)
+	UpdateWallet(context context.Context, id uuid.UUID, wallet models.Wallet) (*models.Wallet, error)
 	DeleteWallet(ctx context.Context, id uuid.UUID) error
 	Withdraw(ctx context.Context, transaction models.Transaction) error
 	Deposit(ctx context.Context, transaction models.Transaction) error
-	Transfer(ctx context.Context, transaction models.Transaction, initAmount float64) error
+	Transfer(ctx context.Context, transaction models.Transaction) error
 }
 
 func (s *Service) CreateWallet(ctx context.Context, wallet models.Wallet) (*models.Wallet, error) {
@@ -53,8 +53,8 @@ func (s *Service) GetWalletByID(ctx context.Context, id uuid.UUID) (*models.Wall
 	return wallet, nil
 }
 
-func (s *Service) UpdateWallet(ctx context.Context, id uuid.UUID, walletDTO models.WalletDTO) (*models.Wallet, error) {
-	updatedWallet, err := s.db.UpdateWallet(ctx, id, walletDTO)
+func (s *Service) UpdateWallet(ctx context.Context, id uuid.UUID, wallet models.Wallet) (*models.Wallet, error) {
+	updatedWallet, err := s.db.UpdateWallet(ctx, id, wallet)
 	if err != nil {
 		return nil, fmt.Errorf("s.db.UpdateWallet(id, walletDTO) err: %w", err)
 	}
@@ -86,7 +86,7 @@ func (s *Service) Withdraw(ctx context.Context, transaction models.Transaction) 
 			return fmt.Errorf("s.xrConverter.Convert(...) err: %w", err)
 		}
 
-		transaction.Amount = convertedAmount
+		transaction.ConvertedAmount = convertedAmount
 	}
 
 	err = s.db.Withdraw(ctx, transaction)
@@ -113,7 +113,7 @@ func (s *Service) Deposit(ctx context.Context, transaction models.Transaction) e
 			return fmt.Errorf("s.xrConverter.Convert(...) err: %w", err)
 		}
 
-		transaction.Amount = convertedAmount
+		transaction.ConvertedAmount = convertedAmount
 	}
 
 	err = s.db.Deposit(ctx, transaction)
@@ -124,7 +124,7 @@ func (s *Service) Deposit(ctx context.Context, transaction models.Transaction) e
 	return nil
 }
 
-func (s *Service) Transfer(ctx context.Context, transaction models.Transaction, initAmount float64) error {
+func (s *Service) Transfer(ctx context.Context, transaction models.Transaction) error {
 	walletFrom, err := s.GetWalletByID(ctx, transaction.WalletID)
 	if err != nil {
 		return fmt.Errorf("s.db.GetWalletByID(walletID) err: %w", err)
@@ -145,10 +145,10 @@ func (s *Service) Transfer(ctx context.Context, transaction models.Transaction, 
 			return fmt.Errorf("s.xrConverter.Convert(...) err: %w", err)
 		}
 
-		transaction.Amount = convertedAmount
+		transaction.ConvertedAmount = convertedAmount
 	}
 
-	err = s.db.Transfer(ctx, transaction, initAmount)
+	err = s.db.Transfer(ctx, transaction)
 	if err != nil {
 		return fmt.Errorf("s.db.Transfer() err: %w", err)
 	}
