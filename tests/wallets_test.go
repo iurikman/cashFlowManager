@@ -11,24 +11,30 @@ import (
 	"github.com/iurikman/cashFlowManager/internal/rest"
 )
 
-const amountOfWallets = 20
+const amountOfWallets = 4
 
 func (s *IntegrationTestSuite) TestWallets() {
-	s.ownersID = s.createListOfTestID(amountOfWallets)
-	s.listOfWallets = s.createWallets(s.ownersID)
+	testUserID := uuid.New()
+	testUser := models.User{
+		ID:       testUserID,
+		Username: "testUser",
+	}
+	err := s.store.UpsertUser(context.Background(), testUser)
+	s.Require().NoError(err)
+	s.listOfWallets = s.createWallets(amountOfWallets, testUserID)
 
 	s.Run("POST", func() {
 		s.Run("201/statusCreated", func() {
-			createdWallet, resp := s.testCreateWallet(s.ownersID[1])
+			createdWallet, resp := s.testCreateWallet(testUserID)
 			s.Require().Equal(http.StatusCreated, resp.StatusCode)
-			s.Require().Equal(s.listOfWallets[1].Owner, createdWallet.Owner)
-			s.Require().Equal(s.listOfWallets[1].Currency, createdWallet.Currency)
-			s.Require().True(s.listOfWallets[1].Balance > 0)
+			s.Require().Equal(testUserID, createdWallet.Owner)
+			s.Require().Equal(s.listOfWallets[1].Currency, "RUR")
+			s.Require().True(createdWallet.Balance > 0)
 		})
 
 		s.Run("201/statusCreated(balance is zero)", func() {
 			testWallet := models.Wallet{
-				Owner:    s.listOfWallets[2].ID,
+				Owner:    testUserID,
 				Currency: "RUR",
 				Balance:  0,
 			}
@@ -58,7 +64,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 
 		s.Run("400/StatusBadRequest(currency not allowed)", func() {
 			testWallet := models.Wallet{
-				Owner:    s.listOfWallets[2].ID,
+				Owner:    testUserID,
 				Currency: "NONECURRENCY",
 				Balance:  10,
 			}
@@ -75,7 +81,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 
 		s.Run("400/StatusBadRequest(balance below zero)", func() {
 			testWallet := models.Wallet{
-				Owner:    s.listOfWallets[2].ID,
+				Owner:    testUserID,
 				Currency: "",
 				Balance:  -0.1,
 			}
@@ -106,6 +112,24 @@ func (s *IntegrationTestSuite) TestWallets() {
 			)
 			s.Require().Equal(http.StatusBadRequest, resp.StatusCode)
 		})
+
+		s.Run("400/StatusBadRequest(owner not found)", func() {
+			id := uuid.New()
+			testWallet := models.Wallet{
+				Owner:    id,
+				Currency: "RUR",
+				Balance:  10,
+			}
+
+			resp := s.sendRequest(
+				context.Background(),
+				http.MethodPost,
+				"/",
+				testWallet,
+				nil,
+			)
+			s.Require().Equal(http.StatusBadRequest, resp.StatusCode)
+		})
 	})
 
 	s.Run("GET", func() {
@@ -121,7 +145,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 			)
 			s.Require().Equal(http.StatusOK, resp.StatusCode)
 			s.Require().Equal(s.listOfWallets[1].ID, rWallet.ID)
-			s.Require().Equal(s.listOfWallets[1].Owner, rWallet.Owner)
+			s.Require().Equal(testUserID, rWallet.Owner)
 			s.Require().Equal(s.listOfWallets[1].Currency, rWallet.Currency)
 			s.Require().Equal(s.listOfWallets[1].Balance, rWallet.Balance)
 			s.Require().Equal(s.listOfWallets[1].Deleted, rWallet.Deleted)
@@ -139,14 +163,13 @@ func (s *IntegrationTestSuite) TestWallets() {
 		})
 
 		s.Run("404/statusNotFound", func() {
-			rWallet := new(models.Wallet)
 			id := uuid.New().String()
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodGet,
 				"/"+id,
 				nil,
-				&rest.HTTPResponse{Data: &rWallet},
+				nil,
 			)
 			s.Require().Equal(http.StatusNotFound, resp.StatusCode)
 		})
@@ -155,11 +178,12 @@ func (s *IntegrationTestSuite) TestWallets() {
 	s.Run("PATCH", func() {
 		s.Run("200/statusOK", func() {
 			updatedWallet := new(models.Wallet)
-			newWalletData := models.WalletDTO{
-				Owner:    s.ownersID[0],
+			newWalletData := models.Wallet{
+				Owner:    testUserID,
 				Currency: "EURO",
 				Balance:  1000,
 			}
+
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPatch,
@@ -174,32 +198,47 @@ func (s *IntegrationTestSuite) TestWallets() {
 		})
 
 		s.Run("400/statusBadRequest", func() {
-			updatedWallet := new(models.Wallet)
-
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPatch,
 				"/"+s.listOfWallets[1].ID.String(),
 				"badRequest",
-				&rest.HTTPResponse{Data: &updatedWallet},
+				nil,
 			)
 			s.Require().Equal(http.StatusBadRequest, resp.StatusCode)
 		})
 
-		s.Run("404/statusNotFound", func() {
-			updatedWallet := new(models.Wallet)
+		s.Run("404/statusNotFound(wallet id not found)", func() {
 			id := uuid.New().String()
-			newWalletData := models.WalletDTO{
-				Owner:    s.ownersID[3],
+			newWalletData := models.Wallet{
+				Owner:    testUserID,
 				Currency: "EURO",
 				Balance:  100,
 			}
+
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPatch,
 				"/"+id,
 				newWalletData,
-				&rest.HTTPResponse{Data: &updatedWallet},
+				nil,
+			)
+			s.Require().Equal(http.StatusNotFound, resp.StatusCode)
+		})
+
+		s.Run("404/statusNotFound(owner id not found)", func() {
+			newWalletData := models.Wallet{
+				Owner:    uuid.New(),
+				Currency: "EURO",
+				Balance:  100,
+			}
+
+			resp := s.sendRequest(
+				context.Background(),
+				http.MethodPatch,
+				"/"+"/"+s.listOfWallets[1].ID.String(),
+				newWalletData,
+				nil,
 			)
 			s.Require().Equal(http.StatusNotFound, resp.StatusCode)
 		})
@@ -244,7 +283,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 	testWithdrawOperation := models.Transaction{
 		TransactionID: uuid.New(),
 		WalletID:      s.listOfWallets[2].ID,
-		Amount:        100,
+		Amount:        1,
 		Currency:      "CHY",
 		OperationType: "ATM_withdraw",
 	}
@@ -253,15 +292,32 @@ func (s *IntegrationTestSuite) TestWallets() {
 		TransactionID:  uuid.New(),
 		WalletID:       s.listOfWallets[2].ID,
 		TargetWalletID: s.listOfWallets[3].ID,
-		Amount:         50,
+		Amount:         1,
 		Currency:       "CHY",
 		OperationType:  "transfer",
 	}
 
+	testTransferBalanceBelowZero := models.Transaction{
+		TransactionID:  uuid.New(),
+		WalletID:       s.listOfWallets[2].ID,
+		TargetWalletID: s.listOfWallets[3].ID,
+		Amount:         100000000,
+		Currency:       "CHY",
+		OperationType:  "transfer",
+	}
+
+	testWithdrawBalanceBelowZero := models.Transaction{
+		TransactionID: uuid.New(),
+		WalletID:      s.listOfWallets[3].ID,
+		Amount:        100000000,
+		Currency:      "CHY",
+		OperationType: "withdraw",
+	}
+
 	testDepositOperation := models.Transaction{
 		TransactionID: uuid.New(),
-		WalletID:      s.listOfWallets[19].ID,
-		Amount:        1000000,
+		WalletID:      s.listOfWallets[2].ID,
+		Amount:        1000,
 		Currency:      "CHY",
 		OperationType: "deposit",
 	}
@@ -315,8 +371,8 @@ func (s *IntegrationTestSuite) TestWallets() {
 		OperationType: "deposit",
 	}
 
-	idRUR := s.testCreateWalletForConverter(s.ownersID[2], "RUR", 10000.0)
-	idAED := s.testCreateWalletForConverter(s.ownersID[2], "AED", 10000.0)
+	idRUR := s.testCreateWalletForConverter(testUserID, "RUR", 10000.0)
+	idAED := s.testCreateWalletForConverter(testUserID, "AED", 10000.0)
 
 	testConverterWithdrawCHYfromRUR := models.Transaction{
 		TransactionID: uuid.New(),
@@ -346,6 +402,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 	s.Run("PUT", func() {
 		s.Run("200/statusOK(deposit)", func() {
 			executedTransaction := new(models.Transaction)
+
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
@@ -358,6 +415,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 
 		s.Run("200/statusOK(transfer)", func() {
 			executedTransaction := new(models.Transaction)
+
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
@@ -370,6 +428,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 
 		s.Run("200/statusOK(withdraw)", func() {
 			executedTransaction := new(models.Transaction)
+
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
@@ -390,7 +449,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 			)
 			updatedWallet, _ := s.store.GetWalletByID(context.Background(), idRUR)
 			s.Require().Equal(http.StatusOK, resp.StatusCode)
-			s.Require().Equal(9880.0, updatedWallet.Balance)
+			s.Require().Equal(9990.0, updatedWallet.Balance)
 		})
 
 		s.Run("200/statusOK(test converter deposit CHY to RUR)", func() {
@@ -424,6 +483,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 
 		s.Run("400/StatusBadRequest(deposit/amount below zero)", func() {
 			executedTransaction := new(models.Transaction)
+
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
@@ -436,6 +496,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 
 		s.Run("400/StatusBadRequest(transfer/amount below zero)", func() {
 			executedTransaction := new(models.Transaction)
+
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
@@ -448,6 +509,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 
 		s.Run("400/StatusBadRequest(withdraw/amount below zero)", func() {
 			executedTransaction := new(models.Transaction)
+
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
@@ -460,6 +522,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 
 		s.Run("400/StatusBadRequest(deposit/walletID is nil)", func() {
 			executedTransaction := new(models.Transaction)
+
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
@@ -472,6 +535,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 
 		s.Run("400/StatusBadRequest(transfer/walletID is nil)", func() {
 			executedTransaction := new(models.Transaction)
+
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
@@ -484,6 +548,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 
 		s.Run("400/StatusBadRequest(withdraw/walletID is nil)", func() {
 			executedTransaction := new(models.Transaction)
+
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
@@ -496,6 +561,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 
 		s.Run("400/StatusBadRequest(deposit/currency not allowed)", func() {
 			executedTransaction := new(models.Transaction)
+
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
@@ -508,6 +574,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 
 		s.Run("400/StatusBadRequest(transfer/currency not allowed)", func() {
 			executedTransaction := new(models.Transaction)
+
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
@@ -519,111 +586,128 @@ func (s *IntegrationTestSuite) TestWallets() {
 		})
 
 		s.Run("400/StatusBadRequest(withdraw/currency not allowed)", func() {
-			executedTransaction := new(models.Transaction)
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
 				"/withdraw",
 				testCurrencyNotAllowed,
-				&rest.HTTPResponse{Data: &executedTransaction},
+				nil,
 			)
 			s.Require().Equal(http.StatusBadRequest, resp.StatusCode)
 		})
 
 		s.Run("400/StatusBadRequest(deposit/amount below zero)", func() {
-			executedTransaction := new(models.Transaction)
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
 				"/deposit",
 				testAmountBelowZero,
-				&rest.HTTPResponse{Data: &executedTransaction},
+				nil,
 			)
 			s.Require().Equal(http.StatusBadRequest, resp.StatusCode)
 		})
 
 		s.Run("400/StatusBadRequest(transfer/amount below zero)", func() {
-			executedTransaction := new(models.Transaction)
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
 				"/transfer",
 				testAmountBelowZero,
-				&rest.HTTPResponse{Data: &executedTransaction},
+				nil,
 			)
 			s.Require().Equal(http.StatusBadRequest, resp.StatusCode)
 		})
 
 		s.Run("400/StatusBadRequest(withdraw/amount below zero)", func() {
-			executedTransaction := new(models.Transaction)
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
 				"/withdraw",
 				testAmountBelowZero,
+				nil,
+			)
+			s.Require().Equal(http.StatusBadRequest, resp.StatusCode)
+		})
+
+		s.Run("400/statusBadRequest(transfer/balance below zero)", func() {
+			executedTransaction := new(models.Transaction)
+
+			resp := s.sendRequest(
+				context.Background(),
+				http.MethodPut,
+				"/transfer",
+				testTransferBalanceBelowZero,
+				&rest.HTTPResponse{Data: &executedTransaction},
+			)
+			s.Require().Equal(http.StatusBadRequest, resp.StatusCode)
+		})
+
+		s.Run("400/statusBadRequest(withdraw/balance below zero)", func() {
+			executedTransaction := new(models.Transaction)
+
+			resp := s.sendRequest(
+				context.Background(),
+				http.MethodPut,
+				"/withdraw",
+				testWithdrawBalanceBelowZero,
 				&rest.HTTPResponse{Data: &executedTransaction},
 			)
 			s.Require().Equal(http.StatusBadRequest, resp.StatusCode)
 		})
 
 		s.Run("400/StatusBadRequest(operation type is empty)", func() {
-			executedTransaction := new(models.Transaction)
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
 				"/withdraw",
 				testAmountBelowZero,
-				&rest.HTTPResponse{Data: &executedTransaction},
+				nil,
 			)
 			s.Require().Equal(http.StatusBadRequest, resp.StatusCode)
 		})
 
 		s.Run("404/StatusNotFound(ownerIDNotFound)", func() {
-			executedTransaction := new(models.Transaction)
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
 				"/transfer",
 				testOwnerUUIDNotFound,
-				&rest.HTTPResponse{Data: &executedTransaction},
+				nil,
 			)
 			s.Require().Equal(http.StatusNotFound, resp.StatusCode)
 		})
 
 		s.Run("404/StatusNotFound(targetUUIDNotFound)", func() {
-			executedTransaction := new(models.Transaction)
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
 				"/transfer",
 				testTargetUUIDNotFound,
-				&rest.HTTPResponse{Data: &executedTransaction},
+				nil,
 			)
 			s.Require().Equal(http.StatusNotFound, resp.StatusCode)
 		})
 
 		s.Run("404/StatusNotFound(deleted=true)", func() {
-			executedTransaction := new(models.Transaction)
 			resp := s.sendRequest(
 				context.Background(),
 				http.MethodPut,
 				"/transfer",
 				testDeletedTrue,
-				&rest.HTTPResponse{Data: &executedTransaction},
+				nil,
 			)
 			s.Require().Equal(http.StatusNotFound, resp.StatusCode)
 		})
 	})
 }
 
-func (s *IntegrationTestSuite) testCreateWallet(testOwnerID uuid.UUID) (models.Wallet, http.Response) {
+func (s *IntegrationTestSuite) testCreateWallet(testUserID uuid.UUID) (models.Wallet, http.Response) {
 	createdWallet := new(models.Wallet)
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	testWallet := models.Wallet{
-		Owner:    testOwnerID,
+		Owner:    testUserID,
 		Currency: "RUR",
-		Balance:  float64(r.Intn(1001)) / 10,
+		Balance:  10.0,
 	}
 
 	resp := s.sendRequest(
@@ -655,10 +739,10 @@ func (s *IntegrationTestSuite) testCreateWalletForConverter(testOwnerID uuid.UUI
 	return createdWallet.ID
 }
 
-func (s *IntegrationTestSuite) createWallets(listOwnersID []uuid.UUID) []models.Wallet {
+func (s *IntegrationTestSuite) createWallets(amountOfWallets int, testUserID uuid.UUID) []models.Wallet {
 	var wallets []models.Wallet
-	for _, id := range listOwnersID {
-		newWallet, _ := s.testCreateWallet(id)
+	for i := 0; i < amountOfWallets; i++ {
+		newWallet, _ := s.testCreateWallet(testUserID)
 		wallets = append(wallets, newWallet)
 	}
 

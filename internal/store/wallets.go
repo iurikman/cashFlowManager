@@ -44,8 +44,12 @@ func (p *Postgres) CreateWallet(ctx context.Context, wallet models.Wallet) (*mod
 	)
 	if err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+
+		switch {
+		case errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation:
 			return nil, models.ErrDuplicateWallet
+		case errors.As(err, &pgErr) && pgErr.Code == pgerrcode.ForeignKeyViolation:
+			return nil, models.ErrUserNotFound
 		}
 
 		return nil, fmt.Errorf("creating wallet error: %w", err)
@@ -83,7 +87,7 @@ func (p *Postgres) GetWalletByID(ctx context.Context, id uuid.UUID) (*models.Wal
 	return &wallet, nil
 }
 
-func (p *Postgres) UpdateWallet(ctx context.Context, id uuid.UUID, walletDTO models.WalletDTO) (*models.Wallet, error) {
+func (p *Postgres) UpdateWallet(ctx context.Context, id uuid.UUID, wallet models.Wallet) (*models.Wallet, error) {
 	var updatedWallet models.Wallet
 
 	query := `	UPDATE wallets SET owner = $2, currency = $3, balance = $4, updated_at = $5
@@ -95,9 +99,9 @@ func (p *Postgres) UpdateWallet(ctx context.Context, id uuid.UUID, walletDTO mod
 		ctx,
 		query,
 		id,
-		walletDTO.Owner,
-		walletDTO.Currency,
-		walletDTO.Balance,
+		wallet.Owner,
+		wallet.Currency,
+		wallet.Balance,
 		time.Now(),
 	).Scan(
 		&updatedWallet.ID,
@@ -138,9 +142,13 @@ func (p *Postgres) updateWalletBalance(ctx context.Context, tx pgx.Tx, id uuid.U
 		&updatedWallet.Balance,
 	)
 
+	var pgErr *pgconn.PgError
+
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return models.ErrWalletNotFound
+	case errors.As(err, &pgErr) && pgErr.Code == pgerrcode.CheckViolation:
+		return models.ErrBalanceBelowZero
 	case err != nil:
 		return fmt.Errorf("updating wallet error: %w", err)
 	}

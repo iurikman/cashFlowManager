@@ -12,4 +12,5 @@ var (
 	ErrTransactionTypeIsEmpty = errors.New("transaction type is empty")
 	ErrChangeBalanceData      = errors.New("change balance data is wrong")
 	ErrCurrencyNotAllowed     = errors.New("currency not allowed")
+	ErrUserNotFound           = errors.New("user not found")
 )

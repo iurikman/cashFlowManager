@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/iurikman/cashFlowManager/internal/config"
 	"github.com/iurikman/cashFlowManager/internal/models"
 	"github.com/iurikman/cashFlowManager/internal/rest"
@@ -26,7 +25,6 @@ type IntegrationTestSuite struct {
 	store         *store.Postgres
 	service       *service.Service
 	server        *rest.Server
-	ownersID      []uuid.UUID
 	listOfWallets []models.Wallet
 }
 
@@ -54,7 +52,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	err = s.store.Migrate(migrate.Up)
 	s.Require().NoError(err)
 
-	err = s.store.Truncate(ctx, "users", "wallets")
+	err = s.store.Truncate(ctx, "wallets", "users", "transactions_history")
 	s.Require().NoError(err)
 
 	xrConverter := MockConverter{}

@@ -20,7 +20,7 @@ func (p *Postgres) UpsertUser(ctx context.Context, user models.User) error {
 		user.ID,
 		user.Username,
 		time.Now(),
-		user.Deleted,
+		false,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
