@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/iurikman/cashFlowManager/internal/models"
 	"github.com/jackc/pgx/v5"
 	log "github.com/sirupsen/logrus"
 )
 
-func (p *Postgres) Deposit(ctx context.Context, transaction models.Transaction) error {
+func (p *Postgres) Deposit(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error {
 	tx, err := p.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("p.db.Begin(ctx) err: %w", err)
@@ -24,7 +25,7 @@ func (p *Postgres) Deposit(ctx context.Context, transaction models.Transaction) 
 		}
 	}()
 
-	err = p.updateWalletBalance(ctx, tx, transaction.WalletID, transaction.Amount)
+	err = p.updateWalletBalance(ctx, tx, transaction.WalletID, ownerID, transaction.Amount)
 	if err != nil {
 		return models.ErrChangeBalanceData
 	}
@@ -41,7 +42,7 @@ func (p *Postgres) Deposit(ctx context.Context, transaction models.Transaction) 
 	return nil
 }
 
-func (p *Postgres) Transfer(ctx context.Context, transaction models.Transaction, initAmount float64) error {
+func (p *Postgres) Transfer(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error {
 	tx, err := p.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("p.db.Begin(ctx) err: %w", err)
@@ -54,24 +55,18 @@ func (p *Postgres) Transfer(ctx context.Context, transaction models.Transaction,
 		}
 	}()
 
-	err = p.updateWalletBalance(
-		ctx,
-		tx,
-		transaction.WalletID,
-		-initAmount)
+	err = p.updateWalletBalance(ctx, tx, transaction.WalletID, ownerID, -transaction.Amount)
 
 	switch {
 	case errors.Is(err, models.ErrWalletNotFound):
 		return models.ErrWalletNotFound
+	case errors.Is(err, models.ErrBalanceBelowZero):
+		return models.ErrBalanceBelowZero
 	case err != nil:
 		return fmt.Errorf("owner walletp.db.UpdateWallet(ctx) err: %w", err)
 	}
 
-	err = p.updateWalletBalance(
-		ctx,
-		tx,
-		transaction.TargetWalletID,
-		transaction.Amount)
+	err = p.updateWalletBalance(ctx, tx, transaction.TargetWalletID, ownerID, transaction.ConvertedAmount)
 
 	switch {
 	case errors.Is(err, models.ErrWalletNotFound):
@@ -92,7 +87,7 @@ func (p *Postgres) Transfer(ctx context.Context, transaction models.Transaction,
 	return nil
 }
 
-func (p *Postgres) Withdraw(ctx context.Context, transaction models.Transaction) error {
+func (p *Postgres) Withdraw(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error {
 	tx, err := p.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("p.db.Begin(ctx) err: %w", err)
@@ -105,11 +100,12 @@ func (p *Postgres) Withdraw(ctx context.Context, transaction models.Transaction)
 		}
 	}()
 
-	if err = p.updateWalletBalance(
-		ctx,
-		tx,
-		transaction.WalletID,
-		-transaction.Amount); err != nil {
+	err = p.updateWalletBalance(ctx, tx, transaction.WalletID, ownerID, -transaction.Amount)
+
+	switch {
+	case errors.Is(err, models.ErrBalanceBelowZero):
+		return models.ErrBalanceBelowZero
+	case err != nil:
 		return models.ErrChangeBalanceData
 	}
 
@@ -129,10 +125,10 @@ func saveTransaction(ctx context.Context, tx pgx.Tx, transaction models.Transact
 	var executedOperation models.Transaction
 
 	query := `INSERT INTO transactions_history
-    (id, wallet_id, target_wallet_id, amount, currency, transaction_type, executed_at)
-    		VALUES ($1, $2, $3, $4, $5, $6, $7)
+    (id, wallet_id, target_wallet_id, amount, converted_amount, currency, transaction_type, executed_at)
+    		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            	RETURNING 
-           	    id, wallet_id, target_wallet_id, amount, currency, transaction_type, executed_at`
+           	    id, wallet_id, target_wallet_id, amount, converted_amount, currency, transaction_type, executed_at`
 
 	err := tx.QueryRow(
 		ctx,
@@ -141,6 +137,7 @@ func saveTransaction(ctx context.Context, tx pgx.Tx, transaction models.Transact
 		transaction.WalletID,
 		transaction.TargetWalletID,
 		transaction.Amount,
+		transaction.ConvertedAmount,
 		transaction.Currency,
 		transaction.OperationType,
 		time.Now(),
@@ -149,6 +146,7 @@ func saveTransaction(ctx context.Context, tx pgx.Tx, transaction models.Transact
 		&executedOperation.WalletID,
 		&executedOperation.TargetWalletID,
 		&executedOperation.Amount,
+		&executedOperation.ConvertedAmount,
 		&executedOperation.Currency,
 		&executedOperation.OperationType,
 		&executedOperation.ExecutedAt,

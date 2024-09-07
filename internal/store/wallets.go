@@ -44,8 +44,12 @@ func (p *Postgres) CreateWallet(ctx context.Context, wallet models.Wallet) (*mod
 	)
 	if err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+
+		switch {
+		case errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation:
 			return nil, models.ErrDuplicateWallet
+		case errors.As(err, &pgErr) && pgErr.Code == pgerrcode.ForeignKeyViolation:
+			return nil, models.ErrUserNotFound
 		}
 
 		return nil, fmt.Errorf("creating wallet error: %w", err)
@@ -54,15 +58,18 @@ func (p *Postgres) CreateWallet(ctx context.Context, wallet models.Wallet) (*mod
 	return createdWallet, nil
 }
 
-func (p *Postgres) GetWalletByID(ctx context.Context, id uuid.UUID) (*models.Wallet, error) {
+func (p *Postgres) GetWalletByID(ctx context.Context, id, ownerID uuid.UUID) (*models.Wallet, error) {
 	var wallet models.Wallet
 
-	query := `SELECT * FROM wallets WHERE id = $1 and deleted = false`
+	query := `	SELECT id, owner, currency, balance, created_at, updated_at, deleted 
+				FROM wallets 
+				WHERE id = $1 and owner = $2 and deleted = false`
 
 	err := p.db.QueryRow(
 		ctx,
 		query,
 		id,
+		ownerID,
 	).Scan(
 		&wallet.ID,
 		&wallet.Owner,
@@ -83,64 +90,37 @@ func (p *Postgres) GetWalletByID(ctx context.Context, id uuid.UUID) (*models.Wal
 	return &wallet, nil
 }
 
-func (p *Postgres) UpdateWallet(ctx context.Context, id uuid.UUID, walletDTO models.WalletDTO) (*models.Wallet, error) {
+func (p *Postgres) updateWalletBalance(
+	ctx context.Context, tx pgx.Tx,
+	walletID, ownerID uuid.UUID,
+	amount float64,
+) error {
 	var updatedWallet models.Wallet
 
-	query := `	UPDATE wallets SET owner = $2, currency = $3, balance = $4, updated_at = $5
-                WHERE id = $1 and deleted = false 
-				RETURNING id, owner, currency, balance, created_at, updated_at, deleted
-				`
-
-	err := p.db.QueryRow(
-		ctx,
-		query,
-		id,
-		walletDTO.Owner,
-		walletDTO.Currency,
-		walletDTO.Balance,
-		time.Now(),
-	).Scan(
-		&updatedWallet.ID,
-		&updatedWallet.Owner,
-		&updatedWallet.Currency,
-		&updatedWallet.Balance,
-		&updatedWallet.CreatedAt,
-		&updatedWallet.UpdatedAt,
-		&updatedWallet.Deleted,
-	)
-
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-		return nil, models.ErrWalletNotFound
-	case err != nil:
-		return nil, fmt.Errorf("updating wallet error: %w", err)
-	}
-
-	return &updatedWallet, nil
-}
-
-func (p *Postgres) updateWalletBalance(ctx context.Context, tx pgx.Tx, id uuid.UUID, balance float64) error {
-	var updatedWallet models.Wallet
-
-	query := `	UPDATE wallets SET balance = balance + $2, updated_at = $3
-                WHERE id = $1 and deleted = false 
+	query := `	UPDATE wallets SET balance = balance + $3, updated_at = $4
+                WHERE id = $1 and owner = $2 and deleted = false 
 				RETURNING id, balance
 				`
 
 	err := tx.QueryRow(
 		ctx,
 		query,
-		id,
-		balance,
+		walletID,
+		ownerID,
+		amount,
 		time.Now(),
 	).Scan(
 		&updatedWallet.ID,
 		&updatedWallet.Balance,
 	)
 
+	var pgErr *pgconn.PgError
+
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return models.ErrWalletNotFound
+	case errors.As(err, &pgErr) && pgErr.Code == pgerrcode.CheckViolation:
+		return models.ErrBalanceBelowZero
 	case err != nil:
 		return fmt.Errorf("updating wallet error: %w", err)
 	}
@@ -148,10 +128,10 @@ func (p *Postgres) updateWalletBalance(ctx context.Context, tx pgx.Tx, id uuid.U
 	return nil
 }
 
-func (p *Postgres) DeleteWallet(ctx context.Context, id uuid.UUID) error {
-	query := `UPDATE wallets SET deleted = true WHERE id = $1 and deleted = false`
+func (p *Postgres) DeleteWallet(ctx context.Context, id, ownerID uuid.UUID) error {
+	query := `UPDATE wallets SET deleted = true WHERE id = $1 and owner = $2 and deleted = false`
 
-	result, err := p.db.Exec(ctx, query, id)
+	result, err := p.db.Exec(ctx, query, id, ownerID)
 
 	switch {
 	case result.RowsAffected() == 0:
