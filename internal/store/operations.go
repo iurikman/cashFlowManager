@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/iurikman/cashFlowManager/internal/models"
 	"github.com/jackc/pgx/v5"
 	log "github.com/sirupsen/logrus"
 )
 
-func (p *Postgres) Deposit(ctx context.Context, transaction models.Transaction) error {
+func (p *Postgres) Deposit(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error {
 	tx, err := p.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("p.db.Begin(ctx) err: %w", err)
@@ -24,7 +25,7 @@ func (p *Postgres) Deposit(ctx context.Context, transaction models.Transaction) 
 		}
 	}()
 
-	err = p.updateWalletBalance(ctx, tx, transaction.WalletID, transaction.Amount)
+	err = p.updateWalletBalance(ctx, tx, transaction.WalletID, ownerID, transaction.Amount)
 	if err != nil {
 		return models.ErrChangeBalanceData
 	}
@@ -41,7 +42,7 @@ func (p *Postgres) Deposit(ctx context.Context, transaction models.Transaction) 
 	return nil
 }
 
-func (p *Postgres) Transfer(ctx context.Context, transaction models.Transaction) error {
+func (p *Postgres) Transfer(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error {
 	tx, err := p.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("p.db.Begin(ctx) err: %w", err)
@@ -54,11 +55,7 @@ func (p *Postgres) Transfer(ctx context.Context, transaction models.Transaction)
 		}
 	}()
 
-	err = p.updateWalletBalance(
-		ctx,
-		tx,
-		transaction.WalletID,
-		-transaction.Amount)
+	err = p.updateWalletBalance(ctx, tx, transaction.WalletID, ownerID, -transaction.Amount)
 
 	switch {
 	case errors.Is(err, models.ErrWalletNotFound):
@@ -69,11 +66,7 @@ func (p *Postgres) Transfer(ctx context.Context, transaction models.Transaction)
 		return fmt.Errorf("owner walletp.db.UpdateWallet(ctx) err: %w", err)
 	}
 
-	err = p.updateWalletBalance(
-		ctx,
-		tx,
-		transaction.TargetWalletID,
-		transaction.ConvertedAmount)
+	err = p.updateWalletBalance(ctx, tx, transaction.TargetWalletID, ownerID, transaction.ConvertedAmount)
 
 	switch {
 	case errors.Is(err, models.ErrWalletNotFound):
@@ -94,7 +87,7 @@ func (p *Postgres) Transfer(ctx context.Context, transaction models.Transaction)
 	return nil
 }
 
-func (p *Postgres) Withdraw(ctx context.Context, transaction models.Transaction) error {
+func (p *Postgres) Withdraw(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error {
 	tx, err := p.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("p.db.Begin(ctx) err: %w", err)
@@ -107,11 +100,7 @@ func (p *Postgres) Withdraw(ctx context.Context, transaction models.Transaction)
 		}
 	}()
 
-	err = p.updateWalletBalance(
-		ctx,
-		tx,
-		transaction.WalletID,
-		-transaction.Amount)
+	err = p.updateWalletBalance(ctx, tx, transaction.WalletID, ownerID, -transaction.Amount)
 
 	switch {
 	case errors.Is(err, models.ErrBalanceBelowZero):

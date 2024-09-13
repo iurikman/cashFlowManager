@@ -3,8 +3,40 @@ package models
 import (
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
+
+const UserInfoKey ctxKey = "userInfo"
+
+type UserRegisterData struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
+	Password string `json:"password"`
+}
+
+func (u UserRegisterData) Validate() error {
+	switch {
+	case u.Phone == "":
+		return ErrPhoneIsRequired
+	case u.Email == "":
+		return ErrEmailIsRequired
+	case u.Password == "":
+		return ErrPasswordIsRequired
+	case u.Name == "":
+		return ErrNameIsRequired
+	}
+
+	return nil
+}
+
+type UserLoginData struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type ctxKey string
 
 type Wallet struct {
 	ID        uuid.UUID `json:"id"`
@@ -67,9 +99,16 @@ func (w Wallet) Validate() error {
 type User struct {
 	ID        uuid.UUID `json:"id"`
 	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	Phone     string    `json:"phone"`
+	Password  string    `json:"password"`
 	Wallets   []Wallet  `json:"wallets"`
 	CreatedAt time.Time `json:"createdAt"`
 	Deleted   bool      `json:"deleted"`
+}
+
+type UserInfo struct {
+	ID uuid.UUID
 }
 
 //nolint:gochecknoglobals
@@ -78,4 +117,9 @@ var AllowedCurrencies = map[string]string{
 	"CHY": "R01375",
 	"AED": "R01230",
 	"INR": "R01270",
+}
+
+type Claims struct {
+	jwt.RegisteredClaims
+	UUID uuid.UUID `json:"uuid"`
 }

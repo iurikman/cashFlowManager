@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/iurikman/cashFlowManager/internal/config"
-	"github.com/iurikman/cashFlowManager/internal/models"
+	"github.com/iurikman/cashFlowManager/internal/jwtgenerator"
 	"github.com/iurikman/cashFlowManager/internal/rest"
 	"github.com/iurikman/cashFlowManager/internal/service"
 	"github.com/iurikman/cashFlowManager/internal/store"
@@ -21,11 +21,12 @@ const bindAddress = "http://localhost:8080/api/v1"
 
 type IntegrationTestSuite struct {
 	suite.Suite
-	cancel        context.CancelFunc
-	store         *store.Postgres
-	service       *service.Service
-	server        *rest.Server
-	listOfWallets []models.Wallet
+	cancel         context.CancelFunc
+	store          *store.Postgres
+	service        *service.Service
+	server         *rest.Server
+	authToken      string
+	tokenGenerator *jwtgenerator.JWTGenerator
 }
 
 func TestIntegrationTestSuite(t *testing.T) {
@@ -57,8 +58,11 @@ func (s *IntegrationTestSuite) SetupSuite() {
 
 	xrConverter := MockConverter{}
 
+	s.tokenGenerator = jwtgenerator.NewJWTGenerator()
+
 	s.service = service.NewService(db, xrConverter)
-	s.server, err = rest.NewServer(rest.ServerConfig{BindAddress: cfg.BindAddress}, s.service)
+
+	s.server, err = rest.NewServer(rest.ServerConfig{BindAddress: cfg.BindAddress}, s.service, s.tokenGenerator.GetPublicKey())
 	s.Require().NoError(err)
 
 	go func() {
@@ -81,6 +85,8 @@ func (s *IntegrationTestSuite) sendRequest(ctx context.Context, method, endpoint
 	s.Require().NoError(err)
 
 	req.Header.Set("Content-Type", "application/json")
+
+	req.Header.Set("Authorization", "Bearer "+s.authToken)
 
 	resp, err := http.DefaultClient.Do(req)
 	s.Require().NoError(err)
