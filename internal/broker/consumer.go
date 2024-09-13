@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 
-	"github.com/iurikman/cashFlowManager/internal/config"
 	"github.com/iurikman/cashFlowManager/internal/models"
 	"github.com/iurikman/cashFlowManager/internal/store"
 	"github.com/segmentio/kafka-go"
@@ -17,19 +16,22 @@ const (
 	userUpdatesTopic = "users_updates"
 )
 
+type ConsumerConfig struct {
+	KafkaBrokers []string
+	KafkaGroupID string
+}
+
 type Consumer struct {
 	reader *kafka.Reader
 	db     *store.Postgres
 }
 
-func NewConsumer(db *store.Postgres) *Consumer {
-	cfg := config.NewConfig()
-
+func NewConsumer(db *store.Postgres, consumerConfig ConsumerConfig) *Consumer {
 	return &Consumer{
 		reader: kafka.NewReader(kafka.ReaderConfig{
-			Brokers: cfg.KafkaBrokers,
+			Brokers: consumerConfig.KafkaBrokers,
 			Topic:   userUpdatesTopic,
-			GroupID: cfg.KafkaGroupID,
+			GroupID: consumerConfig.KafkaGroupID,
 		}),
 		db: db,
 	}
