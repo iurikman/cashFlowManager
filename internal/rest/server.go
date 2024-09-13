@@ -33,6 +33,7 @@ type Server struct {
 func NewServer(
 	serverConfig ServerConfig,
 	srv service,
+	key *rsa.PublicKey,
 ) (*Server, error) {
 	router := chi.NewRouter()
 
@@ -40,6 +41,7 @@ func NewServer(
 		serverConfig: serverConfig,
 		service:      srv,
 		router:       router,
+		key:          key,
 		server: &http.Server{
 			Addr:              serverConfig.BindAddress,
 			Handler:           router,
@@ -73,14 +75,21 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 func (s *Server) configRouter() {
-	s.router.Route("/api/v1", func(r chi.Router) {
-		r.Post("/", s.createWallet)
-		r.Get("/{id}", s.getWalletByID)
-		r.Patch("/{id}", s.updateWallet)
-		r.Delete("/{id}", s.deleteWallet)
+	s.router.Route("/api", func(r chi.Router) {
+		r.Use(s.jwtAuth)
 
-		r.Put("/withdraw", s.withdraw)
-		r.Put("/transfer", s.transfer)
-		r.Put("/deposit", s.deposit)
+		r.Route("/v1", func(r chi.Router) {
+			r.Route("/wallets", func(r chi.Router) {
+				r.Post("/", s.createWallet)
+				r.Get("/{id}", s.getWalletByID)
+				r.Delete("/{id}", s.deleteWallet)
+
+				r.Put("/withdraw", s.withdraw)
+				r.Put("/transfer", s.transfer)
+				r.Put("/deposit", s.deposit)
+
+				r.Get("/{id}/transactions", s.getTransactions)
+			})
+		})
 	})
 }

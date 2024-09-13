@@ -44,9 +44,12 @@ func (p *Producer) Start(ctx context.Context) error {
 	for i := 1; i < 11; i++ {
 		user.ID = uuid.New()
 		user.Username = "User " + strconv.Itoa(i)
+		user.Email = "email" + strconv.Itoa(i)
+		user.Phone = "phone" + strconv.Itoa(i)
+		user.Password = "userPassword" + strconv.Itoa(i)
+		user.Wallets = nil
 		user.CreatedAt = time.Now()
 		user.Deleted = false
-		user.Wallets = nil
 
 		key, err := json.Marshal(user.ID)
 		if err != nil {

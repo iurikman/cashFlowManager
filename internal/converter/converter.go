@@ -21,7 +21,7 @@ type Converter struct {
 	host string
 }
 
-type ValCurs struct {
+type exRate struct {
 	ID         string   `xml:"ID,attr"`
 	DateRange1 string   `xml:"DateRange1,attr"`
 	DateRange2 string   `xml:"DateRange2,attr"`
@@ -47,12 +47,19 @@ func NewConverter(host string) *Converter {
 }
 
 func (c *Converter) Convert(ctx context.Context, currencyFrom, currencyTo Currency) (float64, error) {
-	codeCurrFrom := models.AllowedCurrencies[currencyFrom.Name]
-	codeCurrTo := models.AllowedCurrencies[currencyTo.Name]
+	codeCurrFrom, err := models.GetCurrencyCode(currencyFrom.Name)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get currency code: %w", err)
+	}
+
+	codeCurrTo, err := models.GetCurrencyCode(currencyTo.Name)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get currency code: %w", err)
+	}
 
 	switch {
 	case currencyTo.Name == "RUR":
-		changeRateCurrFrom, err := c.fetchRate(ctx, codeCurrFrom)
+		changeRateCurrFrom, err := c.fetchRate(ctx, *codeCurrFrom)
 		if err != nil {
 			return 0, fmt.Errorf("c.fetchRate(codeCurrFrom) err: %w", err)
 		}
@@ -61,12 +68,12 @@ func (c *Converter) Convert(ctx context.Context, currencyFrom, currencyTo Curren
 
 		return result, nil
 	default:
-		changeRateCurrFrom, err := c.fetchRate(ctx, codeCurrFrom)
+		changeRateCurrFrom, err := c.fetchRate(ctx, *codeCurrFrom)
 		if err != nil {
 			return 0, fmt.Errorf("c.fetchRate(codeCurrFrom) err: %w", err)
 		}
 
-		changeRateCurrTo, err := c.fetchRate(ctx, codeCurrTo)
+		changeRateCurrTo, err := c.fetchRate(ctx, *codeCurrTo)
 		if err != nil {
 			return 0, fmt.Errorf("c.fetchRate(codeCurrTo) err: %w", err)
 		}
@@ -77,6 +84,7 @@ func (c *Converter) Convert(ctx context.Context, currencyFrom, currencyTo Curren
 	}
 }
 
+//nolint:err113
 func (c *Converter) fetchRate(ctx context.Context, currencyCode string) (float64, error) {
 	date := time.Now().AddDate(0, 0, -2)
 	dateString := fmt.Sprintf("%02d/%02d/%d", date.Day(), date.Month(), date.Year())
@@ -110,20 +118,20 @@ func (c *Converter) fetchRate(ctx context.Context, currencyCode string) (float64
 		return transform.NewReader(input, charmap.Windows1251.NewDecoder()), nil
 	}
 
-	var valCurs ValCurs
-	if err := decoder.Decode(&valCurs); err != nil {
+	var exRate exRate
+	if err := decoder.Decode(&exRate); err != nil {
 		return 0, fmt.Errorf("xml.Unmarshal(err): %w", err)
 	}
 
-	if len(valCurs.Records) == 0 {
-		return 0, fmt.Errorf("len(valCurs.Records) == 0 (currencyCode was %s)", currencyCode)
+	if len(exRate.Records) == 0 {
+		return 0, fmt.Errorf("len(exRate.Records) == 0 (currencyCode was %s)", currencyCode)
 	}
 
-	value := strings.ReplaceAll(valCurs.Records[0].Value, ",", ".")
+	value := strings.ReplaceAll(exRate.Records[0].Value, ",", ".")
 
 	rate, err := strconv.ParseFloat(value, 64)
 	if err != nil {
-		return 0, fmt.Errorf("strconv.ParseFloat(valCurs.Records[0].Value, 64) err: %w", err)
+		return 0, fmt.Errorf("strconv.ParseFloat(exRate.Records[0].Value, 64) err: %w", err)
 	}
 
 	return rate, nil

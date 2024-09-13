@@ -3,8 +3,40 @@ package models
 import (
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
+
+const UserInfoKey ctxKey = "userInfo"
+
+type UserRegisterData struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
+	Password string `json:"password"`
+}
+
+func (u UserRegisterData) Validate() error {
+	switch {
+	case u.Phone == "":
+		return ErrPhoneIsRequired
+	case u.Email == "":
+		return ErrEmailIsRequired
+	case u.Password == "":
+		return ErrPasswordIsRequired
+	case u.Name == "":
+		return ErrNameIsRequired
+	}
+
+	return nil
+}
+
+type UserLoginData struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type ctxKey string
 
 type Wallet struct {
 	ID        uuid.UUID `json:"id"`
@@ -19,6 +51,7 @@ type Wallet struct {
 type Transaction struct {
 	TransactionID   uuid.UUID `json:"id"`
 	WalletID        uuid.UUID `json:"walletId"`
+	OwnerID         uuid.UUID `json:"ownerId"`
 	TargetWalletID  uuid.UUID `json:"targetWalletId"`
 	Amount          float64   `json:"amount"`
 	Currency        string    `json:"currency"`
@@ -33,8 +66,12 @@ func (t Transaction) Validate() error {
 		return ErrWalletIDIsEmpty
 	}
 
-	if _, ok := AllowedCurrencies[t.Currency]; !ok {
+	if _, ok := allowedCurrencies[t.Currency]; !ok {
 		return ErrCurrencyNotAllowed
+	}
+
+	if _, ok := allowedOperationTypes[t.OperationType]; !ok {
+		return ErrOperationTypeNotAllowed
 	}
 
 	if t.Amount <= 0 {
@@ -49,7 +86,7 @@ func (t Transaction) Validate() error {
 }
 
 func (w Wallet) Validate() error {
-	if _, ok := AllowedCurrencies[w.Currency]; !ok {
+	if _, ok := allowedCurrencies[w.Currency]; !ok {
 		return ErrCurrencyNotAllowed
 	}
 
@@ -67,15 +104,52 @@ func (w Wallet) Validate() error {
 type User struct {
 	ID        uuid.UUID `json:"id"`
 	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	Phone     string    `json:"phone"`
+	Password  string    `json:"password"`
 	Wallets   []Wallet  `json:"wallets"`
 	CreatedAt time.Time `json:"createdAt"`
 	Deleted   bool      `json:"deleted"`
 }
 
+type UserInfo struct {
+	ID uuid.UUID
+}
+
 //nolint:gochecknoglobals
-var AllowedCurrencies = map[string]string{
+var allowedCurrencies = map[string]string{
 	"RUR": "",
 	"CHY": "R01375",
 	"AED": "R01230",
 	"INR": "R01270",
+}
+
+func GetCurrencyCode(code string) (*string, error) {
+	if code, ok := allowedCurrencies[code]; ok {
+		return &code, nil
+	}
+
+	return nil, ErrCurrencyNotAllowed
+}
+
+type Claims struct {
+	jwt.RegisteredClaims
+	UUID uuid.UUID `json:"uuid"`
+}
+
+type Params struct {
+	Offset         int    `schema:"offset,omitempty"`
+	Limit          int    `schema:"limit,omitempty"`
+	Sorting        string `schema:"sorting,omitempty"`
+	Descending     bool   `schema:"descending,omitempty"`
+	FilterDateFrom string `schema:"filterFrom,omitempty"`
+	FilterDateTo   string `schema:"filterTo,omitempty"`
+	FilterType     string `schema:"filterCurrency,omitempty"`
+}
+
+//nolint:gochecknoglobals
+var allowedOperationTypes = map[string]struct{}{
+	"deposit":  {},
+	"transfer": {},
+	"withdraw": {},
 }

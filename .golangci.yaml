@@ -16,23 +16,21 @@ linters:
   enable-all: true
 
   disable:
-    - gci
-    - funlen
     - depguard
+    - exportloopref
     - exhaustive
     - exhaustruct
+    - funlen
+    - gci
+    - godox
     - gomnd
     - ireturn
-    - varnamelen
+    - revive
     - tagalign
+    - varnamelen
     - wastedassign
     - execinquery
-    - revive
-    - godox
-    - unused
-    - err113
-    - exportloopref
-    - dupl
+
 run:
   timeout: 5m
   tests: false

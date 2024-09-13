@@ -14,6 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/iurikman/cashFlowManager/internal/converter"
+	"github.com/iurikman/cashFlowManager/internal/jwtgenerator"
 	"github.com/iurikman/cashFlowManager/internal/rest"
 	_ "github.com/jackc/pgx/v5"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -48,26 +49,39 @@ func main() {
 
 	svc := service.NewService(db, xrConverter)
 
-	srv, err := rest.NewServer(rest.ServerConfig{BindAddress: cfg.BindAddress}, svc)
+	jwtGenerator := jwtgenerator.NewJWTGenerator()
+
+	srv, err := rest.NewServer(
+		rest.ServerConfig{BindAddress: cfg.BindAddress},
+		svc,
+		jwtGenerator.GetPublicKey(),
+	)
 	if err != nil {
 		log.Panicf("rest.NewServer(cfg) err: %v", err)
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
 
-	consumer := broker.NewConsumer(db)
+	consumer := broker.NewConsumer(
+		db,
+		broker.ConsumerConfig{
+			KafkaBrokers: cfg.KafkaBrokers,
+			KafkaGroupID: cfg.KafkaGroupID,
+		})
 
 	eg.Go(func() error {
 		err = consumer.Start(ctx)
 
 		return fmt.Errorf("consumer stopped: %w", err)
 	})
+	log.Info("consumer started")
 
 	eg.Go(func() error {
 		err = srv.Start(ctx)
 
 		return fmt.Errorf("service stopped: %w", err)
 	})
+	log.Info("service started")
 
 	if err := eg.Wait(); err != nil {
 		log.Panicf("eg.Wait() err: %v", err)
