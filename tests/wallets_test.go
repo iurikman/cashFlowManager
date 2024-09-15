@@ -692,6 +692,7 @@ func (s *IntegrationTestSuite) createWalletForConverter(testOwnerID uuid.UUID, c
 		testWallet,
 		&rest.HTTPResponse{Data: &createdWallet},
 	)
+
 	return createdWallet.ID
 }
 
