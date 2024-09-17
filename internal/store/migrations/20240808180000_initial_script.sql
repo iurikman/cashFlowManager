@@ -23,7 +23,8 @@ CREATE TABLE wallets (
 
 CREATE TABLE transactions_history (
     id uuid primary key,
-    wallet_id uuid not null,
+    wallet_id uuid references wallets (id),
+    owner_id uuid references users (id),
     target_wallet_id uuid,
     amount numeric not null,
     converted_amount numeric,

@@ -51,6 +51,7 @@ type Wallet struct {
 type Transaction struct {
 	TransactionID   uuid.UUID `json:"id"`
 	WalletID        uuid.UUID `json:"walletId"`
+	OwnerID         uuid.UUID `json:"ownerId"`
 	TargetWalletID  uuid.UUID `json:"targetWalletId"`
 	Amount          float64   `json:"amount"`
 	Currency        string    `json:"currency"`
@@ -65,8 +66,12 @@ func (t Transaction) Validate() error {
 		return ErrWalletIDIsEmpty
 	}
 
-	if _, ok := AllowedCurrencies[t.Currency]; !ok {
+	if _, ok := allowedCurrencies[t.Currency]; !ok {
 		return ErrCurrencyNotAllowed
+	}
+
+	if _, ok := allowedOperationTypes[t.OperationType]; !ok {
+		return ErrOperationTypeNotAllowed
 	}
 
 	if t.Amount <= 0 {
@@ -81,7 +86,7 @@ func (t Transaction) Validate() error {
 }
 
 func (w Wallet) Validate() error {
-	if _, ok := AllowedCurrencies[w.Currency]; !ok {
+	if _, ok := allowedCurrencies[w.Currency]; !ok {
 		return ErrCurrencyNotAllowed
 	}
 
@@ -112,14 +117,39 @@ type UserInfo struct {
 }
 
 //nolint:gochecknoglobals
-var AllowedCurrencies = map[string]string{
+var allowedCurrencies = map[string]string{
 	"RUR": "",
 	"CHY": "R01375",
 	"AED": "R01230",
 	"INR": "R01270",
 }
 
+func GetCurrencyCode(code string) (*string, error) {
+	if code, ok := allowedCurrencies[code]; ok {
+		return &code, nil
+	}
+
+	return nil, ErrCurrencyNotAllowed
+}
+
 type Claims struct {
 	jwt.RegisteredClaims
 	UUID uuid.UUID `json:"uuid"`
+}
+
+type Params struct {
+	Offset         int    `schema:"offset,omitempty"`
+	Limit          int    `schema:"limit,omitempty"`
+	Sorting        string `schema:"sorting,omitempty"`
+	Descending     bool   `schema:"descending,omitempty"`
+	FilterDateFrom string `schema:"filterFrom,omitempty"`
+	FilterDateTo   string `schema:"filterTo,omitempty"`
+	FilterType     string `schema:"filterCurrency,omitempty"`
+}
+
+//nolint:gochecknoglobals
+var allowedOperationTypes = map[string]struct{}{
+	"deposit":  {},
+	"transfer": {},
+	"withdraw": {},
 }

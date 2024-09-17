@@ -47,12 +47,19 @@ func NewConverter(host string) *Converter {
 }
 
 func (c *Converter) Convert(ctx context.Context, currencyFrom, currencyTo Currency) (float64, error) {
-	codeCurrFrom := models.AllowedCurrencies[currencyFrom.Name]
-	codeCurrTo := models.AllowedCurrencies[currencyTo.Name]
+	codeCurrFrom, err := models.GetCurrencyCode(currencyFrom.Name)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get currency code: %w", err)
+	}
+
+	codeCurrTo, err := models.GetCurrencyCode(currencyTo.Name)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get currency code: %w", err)
+	}
 
 	switch {
 	case currencyTo.Name == "RUR":
-		changeRateCurrFrom, err := c.fetchRate(ctx, codeCurrFrom)
+		changeRateCurrFrom, err := c.fetchRate(ctx, *codeCurrFrom)
 		if err != nil {
 			return 0, fmt.Errorf("c.fetchRate(codeCurrFrom) err: %w", err)
 		}
@@ -61,12 +68,12 @@ func (c *Converter) Convert(ctx context.Context, currencyFrom, currencyTo Curren
 
 		return result, nil
 	default:
-		changeRateCurrFrom, err := c.fetchRate(ctx, codeCurrFrom)
+		changeRateCurrFrom, err := c.fetchRate(ctx, *codeCurrFrom)
 		if err != nil {
 			return 0, fmt.Errorf("c.fetchRate(codeCurrFrom) err: %w", err)
 		}
 
-		changeRateCurrTo, err := c.fetchRate(ctx, codeCurrTo)
+		changeRateCurrTo, err := c.fetchRate(ctx, *codeCurrTo)
 		if err != nil {
 			return 0, fmt.Errorf("c.fetchRate(codeCurrTo) err: %w", err)
 		}

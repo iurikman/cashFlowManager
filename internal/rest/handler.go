@@ -4,14 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/iurikman/cashFlowManager/internal/models"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/gorilla/schema"
 	log "github.com/sirupsen/logrus"
 )
+
+const standartPage = 10
 
 type service interface {
 	CreateWallet(context context.Context, wallet models.Wallet) (*models.Wallet, error)
@@ -20,6 +25,7 @@ type service interface {
 	Deposit(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error
 	Transfer(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error
 	Withdraw(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error
+	GetTransactions(ctx context.Context, ID uuid.UUID, params models.Params) ([]*models.Transaction, error)
 }
 
 type HTTPResponse struct {
@@ -233,6 +239,59 @@ func (s *Server) withdraw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeOkResponse(w, http.StatusOK, nil)
+}
+
+func (s *Server) getTransactions(w http.ResponseWriter, r *http.Request) {
+	params, err := parseParams(r.URL.Query())
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid query parameters")
+
+		return
+	}
+
+	sID := chi.URLParam(r, "id")
+
+	if sID == " " {
+		writeErrorResponse(w, http.StatusUnprocessableEntity, "id is empty")
+
+		return
+	}
+
+	id, err := uuid.Parse(sID)
+	if err != nil {
+		writeErrorResponse(w, http.StatusUnprocessableEntity, "invalid wallet id")
+
+		return
+	}
+
+	transactions, err := s.service.GetTransactions(r.Context(), id, *params)
+
+	switch {
+	case errors.Is(err, models.ErrTransactionsNotFound):
+		writeErrorResponse(w, http.StatusNotFound, "wallet not found")
+
+		return
+	case err != nil:
+		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+
+		return
+	}
+
+	writeOkResponse(w, http.StatusOK, transactions)
+}
+
+func parseParams(query url.Values) (*models.Params, error) {
+	var params models.Params
+
+	if err := schema.NewDecoder().Decode(&params, query); err != nil {
+		return nil, fmt.Errorf("schema.NewDecoder().Decode(params, query) err: %w", err)
+	}
+
+	if params.Limit == 0 {
+		params.Limit = standartPage
+	}
+
+	return &params, nil
 }
 
 func writeOkResponse(w http.ResponseWriter, statusCode int, respData any) {

@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-const bindAddress = "http://localhost:8080/api/v1"
+const bindAddress = "http://localhost:8080/api/v1/wallets"
 
 type IntegrationTestSuite struct {
 	suite.Suite
@@ -53,7 +53,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	err = s.store.Migrate(migrate.Up)
 	s.Require().NoError(err)
 
-	err = s.store.Truncate(ctx, "wallets", "users", "transactions_history")
+	err = s.store.Truncate(ctx, "transactions_history", "wallets", "users")
 	s.Require().NoError(err)
 
 	xrConverter := MockConverter{}

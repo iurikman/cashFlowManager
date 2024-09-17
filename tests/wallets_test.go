@@ -298,6 +298,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 		})
 	})
 
+	testTransactionForGetTransactions := new(models.Transaction)
 	s.Run("PUT", func() {
 		s.Run("200/statusOK(deposit)", func() {
 			executedTransaction := new(models.Transaction)
@@ -318,6 +319,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 				&rest.HTTPResponse{Data: &executedTransaction},
 			)
 			s.Require().Equal(http.StatusOK, resp.StatusCode)
+			testTransactionForGetTransactions = &testDepositOperation
 		})
 
 		s.Run("200/statusOK(transfer 1 CHY)", func() {
@@ -349,7 +351,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 				WalletID:      listOfWallets[0].ID,
 				Amount:        1,
 				Currency:      "CHY",
-				OperationType: "ATM_withdraw",
+				OperationType: "withdraw",
 			}
 			resp := s.sendRequest(
 				context.Background(),
@@ -367,7 +369,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 				WalletID:      idRUR,
 				Amount:        10.0,
 				Currency:      "CHY",
-				OperationType: "withdraw CHY from RUR",
+				OperationType: "withdraw",
 			}
 
 			resp := s.sendRequest(
@@ -388,7 +390,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 				WalletID:      idRUR,
 				Amount:        10.0,
 				Currency:      "CHY",
-				OperationType: "deposit CHY to RUR",
+				OperationType: "deposit",
 			}
 
 			resp := s.sendRequest(
@@ -411,7 +413,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 				TargetWalletID: idRUR,
 				Amount:         10.0,
 				Currency:       "AED",
-				OperationType:  "transfer AED to RUR",
+				OperationType:  "transfer",
 			}
 
 			resp := s.sendRequest(
@@ -653,6 +655,70 @@ func (s *IntegrationTestSuite) TestWallets() {
 				nil,
 			)
 			s.Require().Equal(http.StatusNotFound, resp.StatusCode)
+		})
+	})
+
+	s.Run("GET", func() {
+		s.Run("/transactions", func() {
+			s.Run("GET/200/statusOK", func() {
+				transactions := new([]models.Transaction)
+				params := "?limit=10&sorting=executed_at&descending=true"
+				resp := s.sendRequest(
+					context.Background(),
+					http.MethodGet,
+					"/"+listOfWallets[0].ID.String()+"/transactions"+params,
+					nil,
+					&rest.HTTPResponse{Data: &transactions},
+				)
+				s.Require().Equal(http.StatusOK, resp.StatusCode)
+				s.Require().Len(*transactions, 3)
+
+				for _, transaction := range *transactions {
+					s.Require().Equal(listOfWallets[0].ID, transaction.WalletID)
+				}
+
+				s.Require().Equal(testTransactionForGetTransactions.Amount, (*transactions)[2].Amount)
+				s.Require().Equal(testTransactionForGetTransactions.Currency, (*transactions)[2].Currency)
+				s.Require().Equal(testTransactionForGetTransactions.OperationType, (*transactions)[2].OperationType)
+			})
+
+			s.Run("422/StatusUnprocessableEntity", func() {
+				params := "?limit=10&sorting=executed_at&descending=true"
+				resp := s.sendRequest(
+					context.Background(),
+					http.MethodGet,
+					"/badRequest"+"/transactions"+params,
+					nil,
+					nil,
+				)
+				s.Require().Equal(http.StatusUnprocessableEntity, resp.StatusCode)
+			})
+
+			s.Run("404/StatusNotFound", func() {
+				params := "?limit=10&sorting=executed_at&descending=true"
+				id := uuid.New()
+				resp := s.sendRequest(
+					context.Background(),
+					http.MethodGet,
+					"/"+id.String()+"/transactions"+params,
+					nil,
+					nil,
+				)
+				s.Require().Equal(http.StatusNotFound, resp.StatusCode)
+			})
+
+			s.Run("422/StatusUnprocessableEntity", func() {
+				params := ""
+				id := ""
+				resp := s.sendRequest(
+					context.Background(),
+					http.MethodGet,
+					"/"+id+"/transactions"+params,
+					nil,
+					nil,
+				)
+				s.Require().Equal(http.StatusUnprocessableEntity, resp.StatusCode)
+			})
 		})
 	})
 }

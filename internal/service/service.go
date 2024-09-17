@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -32,6 +33,7 @@ type db interface {
 	Withdraw(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error
 	Deposit(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error
 	Transfer(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error
+	GetTransactions(ctx context.Context, ID uuid.UUID, params models.Params) ([]*models.Transaction, error)
 }
 
 func (s *Service) CreateWallet(ctx context.Context, wallet models.Wallet) (*models.Wallet, error) {
@@ -144,4 +146,22 @@ func (s *Service) Transfer(ctx context.Context, transaction models.Transaction, 
 	}
 
 	return nil
+}
+
+func (s *Service) GetTransactions(ctx context.Context, id uuid.UUID, params models.Params) (
+	[]*models.Transaction, error,
+) {
+	var transactions []*models.Transaction
+
+	transactions, err := s.db.GetTransactions(ctx, id, params)
+
+	switch {
+	case errors.Is(err, models.ErrTransactionsNotFound):
+		return nil, models.ErrTransactionsNotFound
+
+	case err != nil:
+		return nil, fmt.Errorf("s.db.GetTransactions(walletID) err: %w", err)
+	}
+
+	return transactions, nil
 }

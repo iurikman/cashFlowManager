@@ -79,13 +79,17 @@ func (s *Server) configRouter() {
 		r.Use(s.jwtAuth)
 
 		r.Route("/v1", func(r chi.Router) {
-			r.Post("/", s.createWallet)
-			r.Get("/{id}", s.getWalletByID)
-			r.Delete("/{id}", s.deleteWallet)
+			r.Route("/wallets", func(r chi.Router) {
+				r.Post("/", s.createWallet)
+				r.Get("/{id}", s.getWalletByID)
+				r.Delete("/{id}", s.deleteWallet)
 
-			r.Put("/withdraw", s.withdraw)
-			r.Put("/transfer", s.transfer)
-			r.Put("/deposit", s.deposit)
+				r.Put("/withdraw", s.withdraw)
+				r.Put("/transfer", s.transfer)
+				r.Put("/deposit", s.deposit)
+
+				r.Get("/{id}/transactions", s.getTransactions)
+			})
 		})
 	})
 }
