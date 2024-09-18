@@ -18,7 +18,7 @@ type TransactionsProducer struct {
 	kafkaWriter *kafka.Writer
 }
 
-func NewTransactionsProducer() *TransactionsProducer {
+func NewTransactionsProd() *TransactionsProducer {
 	cfg := config.NewConfig()
 
 	address, err := net.ResolveTCPAddr("tcp", cfg.KafkaAddress)
@@ -49,12 +49,13 @@ func (p *TransactionsProducer) ProduceTransaction(ctx context.Context, transacti
 	}
 
 	if err = p.kafkaWriter.WriteMessages(ctx, kafka.Message{
-		Topic: transactionsTopic,
 		Key:   key,
 		Value: payload,
 	}); err != nil {
 		return fmt.Errorf("could not write messages: %w", err)
 	}
+
+	log.Infof("transaction # %s produced", transaction.TransactionID)
 
 	if err = p.kafkaWriter.Close(); err != nil {
 		return fmt.Errorf("could not close kafkaWriter: %w", err)

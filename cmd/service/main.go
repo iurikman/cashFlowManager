@@ -47,7 +47,9 @@ func main() {
 
 	xrConverter := converter.NewConverter(cfg.XRConverterHost)
 
-	svc := service.NewService(db, xrConverter)
+	transactionsProducer := broker.NewTransactionsProd()
+
+	svc := service.NewService(db, xrConverter, transactionsProducer)
 
 	jwtGenerator := jwtgenerator.NewJWTGenerator()
 
