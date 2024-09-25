@@ -16,20 +16,16 @@ linters:
   enable-all: true
 
   disable:
-    - depguard
-    - exportloopref
-    - exhaustive
-    - exhaustruct
     - funlen
-    - gci
-    - godox
+    - depguard
+    - execinquery
+    - exportloopref
+    - exhaustruct
     - gomnd
     - ireturn
-    - revive
     - tagalign
     - varnamelen
     - wastedassign
-    - execinquery
 
 run:
   timeout: 5m

@@ -35,4 +35,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
+      - run: go install github.com/vektra/mockery/v2@v2.46.0
+      - run: go generate ./...
       - run: make test

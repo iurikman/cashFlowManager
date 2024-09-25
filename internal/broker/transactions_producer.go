@@ -18,7 +18,7 @@ type TransactionsProducer struct {
 	kafkaWriter *kafka.Writer
 }
 
-func NewTransactionsProd() *TransactionsProducer {
+func NewTransactionsProducer() *TransactionsProducer {
 	cfg := config.NewConfig()
 
 	address, err := net.ResolveTCPAddr("tcp", cfg.KafkaAddress)

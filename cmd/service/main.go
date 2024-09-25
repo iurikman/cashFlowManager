@@ -8,17 +8,15 @@ import (
 
 	"github.com/iurikman/cashFlowManager/internal/broker"
 	"github.com/iurikman/cashFlowManager/internal/config"
-	"github.com/iurikman/cashFlowManager/internal/service"
-	"github.com/iurikman/cashFlowManager/internal/store"
-
-	log "github.com/sirupsen/logrus"
-
 	"github.com/iurikman/cashFlowManager/internal/converter"
 	"github.com/iurikman/cashFlowManager/internal/jwtgenerator"
 	"github.com/iurikman/cashFlowManager/internal/rest"
+	"github.com/iurikman/cashFlowManager/internal/service"
+	"github.com/iurikman/cashFlowManager/internal/store"
 	_ "github.com/jackc/pgx/v5"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	migrate "github.com/rubenv/sql-migrate"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -47,7 +45,7 @@ func main() {
 
 	xrConverter := converter.NewConverter(cfg.XRConverterHost)
 
-	transactionsProducer := broker.NewTransactionsProd()
+	transactionsProducer := broker.NewTransactionsProducer()
 
 	svc := service.NewService(db, xrConverter, transactionsProducer)
 

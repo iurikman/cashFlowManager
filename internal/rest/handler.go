@@ -8,11 +8,10 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/iurikman/cashFlowManager/internal/models"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/gorilla/schema"
+	"github.com/iurikman/cashFlowManager/internal/models"
 	log "github.com/sirupsen/logrus"
 )
 
