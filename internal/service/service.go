@@ -11,19 +11,26 @@ import (
 )
 
 type Service struct {
-	db          db
-	xrConverter xrConverter
+	db                   db
+	xrConverter          xrConverter
+	transactionsProducer transactionsProducer
 }
 
-func NewService(db db, xrConverter xrConverter) *Service {
+func NewService(db db, xrConverter xrConverter, transactionsProducer transactionsProducer) *Service {
 	return &Service{
-		db:          db,
-		xrConverter: xrConverter,
+		db:                   db,
+		xrConverter:          xrConverter,
+		transactionsProducer: transactionsProducer,
 	}
 }
 
 type xrConverter interface {
 	Convert(ctx context.Context, currencyFrom, currencyTo converter.Currency) (float64, error)
+}
+
+//go:generate mockery --name transactionsProducer --exported
+type transactionsProducer interface {
+	ProduceTransaction(ctx context.Context, transactions models.Transaction) error
 }
 
 type db interface {
@@ -62,6 +69,7 @@ func (s *Service) DeleteWallet(ctx context.Context, id, ownerID uuid.UUID) error
 	return nil
 }
 
+//nolint:dupl
 func (s *Service) Withdraw(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error {
 	wallet, err := s.db.GetWalletByID(ctx, transaction.WalletID, ownerID)
 	if err != nil {
@@ -86,9 +94,14 @@ func (s *Service) Withdraw(ctx context.Context, transaction models.Transaction, 
 		return fmt.Errorf("s.db.Withdraw() err: %w", err)
 	}
 
+	if err = s.transactionsProducer.ProduceTransaction(ctx, transaction); err != nil {
+		return fmt.Errorf("s.transactionsProducer.ProduceTransaction() err: %w", err)
+	}
+
 	return nil
 }
 
+//nolint:dupl
 func (s *Service) Deposit(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error {
 	wallet, err := s.db.GetWalletByID(ctx, transaction.WalletID, ownerID)
 	if err != nil {
@@ -111,6 +124,10 @@ func (s *Service) Deposit(ctx context.Context, transaction models.Transaction, o
 	err = s.db.Deposit(ctx, transaction, ownerID)
 	if err != nil {
 		return fmt.Errorf("s.db.Deposit() err: %w", err)
+	}
+
+	if err = s.transactionsProducer.ProduceTransaction(ctx, transaction); err != nil {
+		return fmt.Errorf("s.transactionsProducer.ProduceTransaction() err: %w", err)
 	}
 
 	return nil
@@ -143,6 +160,10 @@ func (s *Service) Transfer(ctx context.Context, transaction models.Transaction, 
 	err = s.db.Transfer(ctx, transaction, ownerID)
 	if err != nil {
 		return fmt.Errorf("s.db.Transfer() err: %w", err)
+	}
+
+	if err = s.transactionsProducer.ProduceTransaction(ctx, transaction); err != nil {
+		return fmt.Errorf("s.transactionsProducer.ProduceTransaction() err: %w", err)
 	}
 
 	return nil

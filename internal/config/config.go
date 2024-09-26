@@ -3,9 +3,8 @@ package config
 import (
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/ilyakaznacheev/cleanenv"
+	log "github.com/sirupsen/logrus"
 )
 
 type Config struct {

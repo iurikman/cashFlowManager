@@ -11,9 +11,11 @@ import (
 	"github.com/iurikman/cashFlowManager/internal/jwtgenerator"
 	"github.com/iurikman/cashFlowManager/internal/rest"
 	"github.com/iurikman/cashFlowManager/internal/service"
+	"github.com/iurikman/cashFlowManager/internal/service/mocks"
 	"github.com/iurikman/cashFlowManager/internal/store"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	migrate "github.com/rubenv/sql-migrate"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -21,12 +23,13 @@ const bindAddress = "http://localhost:8080/api/v1/wallets"
 
 type IntegrationTestSuite struct {
 	suite.Suite
-	cancel         context.CancelFunc
-	store          *store.Postgres
-	service        *service.Service
-	server         *rest.Server
-	authToken      string
-	tokenGenerator *jwtgenerator.JWTGenerator
+	cancel               context.CancelFunc
+	store                *store.Postgres
+	service              *service.Service
+	server               *rest.Server
+	authToken            string
+	tokenGenerator       *jwtgenerator.JWTGenerator
+	transactionsProducer *mocks.TransactionsProducer
 }
 
 func TestIntegrationTestSuite(t *testing.T) {
@@ -60,7 +63,10 @@ func (s *IntegrationTestSuite) SetupSuite() {
 
 	s.tokenGenerator = jwtgenerator.NewJWTGenerator()
 
-	s.service = service.NewService(db, xrConverter)
+	s.transactionsProducer = mocks.NewTransactionsProducer(s.T())
+	s.transactionsProducer.On("ProduceTransaction", mock.Anything, mock.Anything).Return(nil)
+
+	s.service = service.NewService(db, xrConverter, s.transactionsProducer)
 
 	s.server, err = rest.NewServer(rest.ServerConfig{BindAddress: cfg.BindAddress}, s.service, s.tokenGenerator.GetPublicKey())
 	s.Require().NoError(err)

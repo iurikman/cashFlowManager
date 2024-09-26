@@ -298,7 +298,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 		})
 	})
 
-	testTransactionForGetTransactions := new(models.Transaction)
+	testTransaction := new(models.Transaction)
 	s.Run("PUT", func() {
 		s.Run("200/statusOK(deposit)", func() {
 			executedTransaction := new(models.Transaction)
@@ -319,7 +319,7 @@ func (s *IntegrationTestSuite) TestWallets() {
 				&rest.HTTPResponse{Data: &executedTransaction},
 			)
 			s.Require().Equal(http.StatusOK, resp.StatusCode)
-			testTransactionForGetTransactions = &testDepositOperation
+			testTransaction = &testDepositOperation
 		})
 
 		s.Run("200/statusOK(transfer 1 CHY)", func() {
@@ -677,9 +677,9 @@ func (s *IntegrationTestSuite) TestWallets() {
 					s.Require().Equal(listOfWallets[0].ID, transaction.WalletID)
 				}
 
-				s.Require().Equal(testTransactionForGetTransactions.Amount, (*transactions)[2].Amount)
-				s.Require().Equal(testTransactionForGetTransactions.Currency, (*transactions)[2].Currency)
-				s.Require().Equal(testTransactionForGetTransactions.OperationType, (*transactions)[2].OperationType)
+				s.Require().Equal(testTransaction.Amount, (*transactions)[2].Amount)
+				s.Require().Equal(testTransaction.Currency, (*transactions)[2].Currency)
+				s.Require().Equal(testTransaction.OperationType, (*transactions)[2].OperationType)
 			})
 
 			s.Run("422/StatusUnprocessableEntity", func() {
