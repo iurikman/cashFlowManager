@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	migrate "github.com/rubenv/sql-migrate"
 	log "github.com/sirupsen/logrus"
@@ -110,4 +111,22 @@ func (p *Postgres) Truncate(ctx context.Context, tables ...string) error {
 	}
 
 	return nil
+}
+
+type txCtxKey string
+
+//nolint:gochecknoglobals
+var ctxKey txCtxKey = "tx"
+
+func (p *Postgres) storeTx(ctx context.Context, tx pgx.Tx) context.Context {
+	return context.WithValue(ctx, ctxKey, tx)
+}
+
+func (p *Postgres) getTxFromCtx(ctx context.Context) pgx.Tx {
+	tx, ok := ctx.Value(ctxKey).(pgx.Tx)
+	if !ok {
+		return nil
+	}
+
+	return tx
 }
