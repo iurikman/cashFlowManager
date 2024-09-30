@@ -109,3 +109,7 @@ func (s *IntegrationTestSuite) sendRequest(ctx context.Context, method, endpoint
 
 	return resp
 }
+
+func toString(str string) *string {
+	return &str
+}

@@ -36,6 +36,7 @@ type transactionsProducer interface {
 type db interface {
 	CreateWallet(ctx context.Context, wallet models.Wallet) (*models.Wallet, error)
 	GetWalletByID(ctx context.Context, id, ownerID uuid.UUID) (*models.Wallet, error)
+	UpdateWallet(ctx context.Context, id, ownerID uuid.UUID, name, currency *string, balance float64) (*models.Wallet, error)
 	DeleteWallet(ctx context.Context, id, ownerID uuid.UUID) error
 	Withdraw(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error
 	Deposit(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error
@@ -59,6 +60,45 @@ func (s *Service) GetWalletByID(ctx context.Context, id, ownerID uuid.UUID) (*mo
 	}
 
 	return wallet, nil
+}
+
+func (s *Service) UpdateWallet(ctx context.Context, id, ownerID uuid.UUID, walletDTO models.WalletDTO) (*models.Wallet, error) {
+	wallet, err := s.db.GetWalletByID(ctx, id, ownerID)
+	if err != nil {
+		return nil, fmt.Errorf("s.db.GetWalletByID(id) err: %w", err)
+	}
+
+	newBalance := wallet.Balance
+	newCurrency := &wallet.Currency
+
+	if walletDTO.Currency != nil {
+		newCurrency = walletDTO.Currency
+
+		if wallet.Currency != *walletDTO.Currency {
+			convertedAmount, err := s.xrConverter.Convert(
+				ctx,
+				converter.Currency{Amount: wallet.Balance, Name: wallet.Currency},
+				converter.Currency{Amount: wallet.Balance, Name: *walletDTO.Currency},
+			)
+			if err != nil {
+				return nil, fmt.Errorf("s.xrConverter.Convert(...) err: %w", err)
+			}
+
+			newBalance = convertedAmount
+		}
+	}
+
+	newName := &wallet.Name
+	if walletDTO.Name != nil {
+		newName = walletDTO.Name
+	}
+
+	updatedWallet, err := s.db.UpdateWallet(ctx, id, ownerID, newName, newCurrency, newBalance)
+	if err != nil {
+		return nil, fmt.Errorf("s.db.UpdateWallet(ctx, id, walletDTO) err: %w", err)
+	}
+
+	return updatedWallet, nil
 }
 
 func (s *Service) DeleteWallet(ctx context.Context, id, ownerID uuid.UUID) error {

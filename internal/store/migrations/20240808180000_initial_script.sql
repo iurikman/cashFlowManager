@@ -14,6 +14,7 @@ CREATE TABLE users (
 CREATE TABLE wallets (
     id uuid not null primary key,
     owner uuid references users (id),
+    name varchar not null,
     currency varchar not null,
     balance numeric not null DEFAULT 0 check ( balance >= 0 ),
     created_at timestamp not null,
