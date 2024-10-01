@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 	"net/url"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -110,4 +111,21 @@ func (p *Postgres) Truncate(ctx context.Context, tables ...string) error {
 	}
 
 	return nil
+}
+
+type txCtxKeyType string
+
+var txCtxKey txCtxKeyType = "tx"
+
+func (p *Postgres) storeTx(ctx context.Context, tx pgx.Tx) context.Context {
+	return context.WithValue(ctx, txCtxKey, tx)
+}
+
+func (p *Postgres) getTxFromCtx(ctx context.Context) pgx.Tx {
+	tx, ok := ctx.Value(txCtxKey).(pgx.Tx)
+	if !ok {
+		return nil
+	}
+
+	return tx
 }

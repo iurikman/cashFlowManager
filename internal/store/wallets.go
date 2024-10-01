@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"time"
 
 	"github.com/google/uuid"
@@ -60,6 +61,10 @@ func (p *Postgres) CreateWallet(ctx context.Context, wallet models.Wallet) (*mod
 	return createdWallet, nil
 }
 
+type querier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 func (p *Postgres) GetWalletByID(ctx context.Context, id, ownerID uuid.UUID) (*models.Wallet, error) {
 	var wallet models.Wallet
 
@@ -67,7 +72,16 @@ func (p *Postgres) GetWalletByID(ctx context.Context, id, ownerID uuid.UUID) (*m
 				FROM wallets 
 				WHERE id = $1 and owner = $2 and deleted = false`
 
-	err := p.db.QueryRow(
+	var db querier
+
+	db = p.getTxFromCtx(ctx)
+	if db == nil {
+		db = p.db
+	} else {
+		query += ` FOR UPDATE`
+	}
+
+	err := db.QueryRow(
 		ctx,
 		query,
 		id,
@@ -174,6 +188,31 @@ func (p *Postgres) DeleteWallet(ctx context.Context, id, ownerID uuid.UUID) erro
 		return models.ErrWalletNotFound
 	case err != nil:
 		return fmt.Errorf("deleting wallet error: %w", err)
+	}
+
+	return nil
+}
+
+func (p *Postgres) RunInTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	tx, err := p.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction error: %w", err)
+	}
+
+	ctx = p.storeTx(ctx, tx)
+
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+			log.Warnf("tx.Rollback(ctx): %v", err)
+		}
+	}()
+
+	if err = fn(ctx); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit transaction error: %w", err)
 	}
 
 	return nil

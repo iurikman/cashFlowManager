@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"github.com/google/uuid"
 	"github.com/iurikman/cashFlowManager/internal/converter"
 	"github.com/iurikman/cashFlowManager/internal/models"
@@ -42,6 +41,7 @@ type db interface {
 	Deposit(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error
 	Transfer(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error
 	GetTransactions(ctx context.Context, ID uuid.UUID, params models.Params) ([]*models.Transaction, error)
+	RunInTx(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
 func (s *Service) CreateWallet(ctx context.Context, wallet models.Wallet) (*models.Wallet, error) {
@@ -63,42 +63,50 @@ func (s *Service) GetWalletByID(ctx context.Context, id, ownerID uuid.UUID) (*mo
 }
 
 func (s *Service) UpdateWallet(ctx context.Context, id, ownerID uuid.UUID, walletDTO models.WalletDTO) (*models.Wallet, error) {
-	wallet, err := s.db.GetWalletByID(ctx, id, ownerID)
-	if err != nil {
-		return nil, fmt.Errorf("s.db.GetWalletByID(id) err: %w", err)
-	}
+	var result *models.Wallet
 
-	newBalance := wallet.Balance
-	newCurrency := &wallet.Currency
-
-	if walletDTO.Currency != nil {
-		newCurrency = walletDTO.Currency
-
-		if wallet.Currency != *walletDTO.Currency {
-			convertedAmount, err := s.xrConverter.Convert(
-				ctx,
-				converter.Currency{Amount: wallet.Balance, Name: wallet.Currency},
-				converter.Currency{Amount: wallet.Balance, Name: *walletDTO.Currency},
-			)
-			if err != nil {
-				return nil, fmt.Errorf("s.xrConverter.Convert(...) err: %w", err)
-			}
-
-			newBalance = convertedAmount
+	if err := s.db.RunInTx(ctx, func(ctx context.Context) error {
+		wallet, err := s.db.GetWalletByID(ctx, id, ownerID)
+		if err != nil {
+			return fmt.Errorf("s.db.GetWalletByID(id) err: %w", err)
 		}
+
+		newBalance := wallet.Balance
+		newCurrency := &wallet.Currency
+
+		if walletDTO.Currency != nil {
+			newCurrency = walletDTO.Currency
+
+			if wallet.Currency != *walletDTO.Currency {
+				convertedAmount, err := s.xrConverter.Convert(
+					ctx,
+					converter.Currency{Amount: wallet.Balance, Name: wallet.Currency},
+					converter.Currency{Amount: wallet.Balance, Name: *walletDTO.Currency},
+				)
+				if err != nil {
+					return fmt.Errorf("s.xrConverter.Convert(...) err: %w", err)
+				}
+
+				newBalance = convertedAmount
+			}
+		}
+
+		newName := &wallet.Name
+		if walletDTO.Name != nil {
+			newName = walletDTO.Name
+		}
+
+		result, err = s.db.UpdateWallet(ctx, id, ownerID, newName, newCurrency, newBalance)
+		if err != nil {
+			return fmt.Errorf("s.db.UpdateWallet(ctx, id, walletDTO) err: %w", err)
+		}
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("s.db.RunInTx(ctx, function) err: %w", err)
 	}
 
-	newName := &wallet.Name
-	if walletDTO.Name != nil {
-		newName = walletDTO.Name
-	}
-
-	updatedWallet, err := s.db.UpdateWallet(ctx, id, ownerID, newName, newCurrency, newBalance)
-	if err != nil {
-		return nil, fmt.Errorf("s.db.UpdateWallet(ctx, id, walletDTO) err: %w", err)
-	}
-
-	return updatedWallet, nil
+	return result, nil
 }
 
 func (s *Service) DeleteWallet(ctx context.Context, id, ownerID uuid.UUID) error {
