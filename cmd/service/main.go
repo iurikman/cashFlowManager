@@ -70,16 +70,29 @@ func main() {
 		})
 
 	eg.Go(func() error {
-		err = consumer.Start(ctx)
+		if err := consumer.Start(ctx); err != nil {
+			return fmt.Errorf("consumer stopped: %w", err)
+		}
 
-		return fmt.Errorf("consumer stopped: %w", err)
+		return nil
 	})
 	log.Info("consumer started")
 
 	eg.Go(func() error {
-		err = srv.Start(ctx)
+		if err := svc.StartCleaner(ctx); err != nil {
+			return fmt.Errorf("cleaner stopped: %w", err)
+		}
 
-		return fmt.Errorf("service stopped: %w", err)
+		return nil
+	})
+	log.Info("cleaner started")
+
+	eg.Go(func() error {
+		if err := srv.Start(ctx); err != nil {
+			return fmt.Errorf("server stopped: %w", err)
+		}
+
+		return nil
 	})
 	log.Info("service started")
 

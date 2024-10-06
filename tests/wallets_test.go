@@ -777,6 +777,15 @@ func (s *IntegrationTestSuite) TestWallets() {
 				s.Require().Equal(http.StatusUnprocessableEntity, resp.StatusCode)
 			})
 		})
+
+		s.Run("/metrics", func() {
+			resp := s.sendMetricsRequest(
+				context.Background(),
+				nil,
+				nil,
+			)
+			s.Require().Equal(http.StatusOK, resp.StatusCode)
+		})
 	})
 }
 

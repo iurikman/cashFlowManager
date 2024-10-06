@@ -214,3 +214,15 @@ func (p *Postgres) DoWithTx(ctx context.Context, fn func(ctx context.Context) er
 
 	return nil
 }
+
+func (p *Postgres) Clean(ctx context.Context) error {
+	startingFromDate := time.Now().AddDate(-1, 0, 0)
+	query := `UPDATE wallets SET deleted = true WHERE deleted = false and updated_at < $1`
+
+	_, err := p.db.Exec(ctx, query, startingFromDate)
+	if err != nil {
+		return fmt.Errorf("clean(): p.db.Exec(ctx, query, time) err: %w", err)
+	}
+
+	return nil
+}

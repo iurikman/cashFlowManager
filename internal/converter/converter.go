@@ -43,7 +43,9 @@ type Currency struct {
 }
 
 func NewConverter(host string) *Converter {
-	return &Converter{host}
+	return &Converter{
+		host,
+	}
 }
 
 func (c *Converter) Convert(ctx context.Context, currencyFrom, currencyTo Currency) (float64, error) {

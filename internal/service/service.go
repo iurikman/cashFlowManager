@@ -4,16 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/iurikman/cashFlowManager/internal/converter"
 	"github.com/iurikman/cashFlowManager/internal/models"
+	log "github.com/sirupsen/logrus"
 )
+
+const cleaningEvery = 5 * time.Second
 
 type Service struct {
 	db                   db
 	xrConverter          xrConverter
 	transactionsProducer transactionsProducer
+	metrics              *metrics
 }
 
 func NewService(db db, xrConverter xrConverter, transactionsProducer transactionsProducer) *Service {
@@ -21,6 +26,7 @@ func NewService(db db, xrConverter xrConverter, transactionsProducer transaction
 		db:                   db,
 		xrConverter:          xrConverter,
 		transactionsProducer: transactionsProducer,
+		metrics:              newMetrics(),
 	}
 }
 
@@ -43,6 +49,7 @@ type db interface {
 	Transfer(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error
 	GetTransactions(ctx context.Context, ID uuid.UUID, params models.Params) ([]*models.Transaction, error)
 	DoWithTx(ctx context.Context, fn func(ctx context.Context) error) error
+	Clean(ctx context.Context) error
 }
 
 func (s *Service) CreateWallet(ctx context.Context, wallet models.Wallet) (*models.Wallet, error) {
@@ -89,6 +96,8 @@ func (s *Service) UpdateWallet(ctx context.Context, id, ownerID uuid.UUID, walle
 				}
 
 				newBalance = convertedAmount
+
+				s.metrics.IncrXRRequests(wallet.Currency, *walletDTO.Currency)
 			}
 		}
 
@@ -252,4 +261,20 @@ func (s *Service) GetTransactions(ctx context.Context, id uuid.UUID, params mode
 	}
 
 	return transactions, nil
+}
+
+func (s *Service) StartCleaner(ctx context.Context) error {
+	ticker := time.NewTicker(cleaningEvery)
+	defer ticker.Stop()
+
+	for {
+		if err := s.db.Clean(ctx); err != nil {
+			log.Errorf("base cleaner failed: %v", err)
+		}
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			return nil
+		}
+	}
 }

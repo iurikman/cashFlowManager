@@ -16,11 +16,7 @@ var AllowedCurrencies = map[string]float64{
 
 type MockConverter struct{}
 
-func (c MockConverter) Convert(
-	ctx context.Context,
-	currencyFrom converter.Currency,
-	currencyTo converter.Currency,
-) (float64, error) {
+func (c MockConverter) Convert(ctx context.Context, currencyFrom converter.Currency, currencyTo converter.Currency) (float64, error) {
 	changeRateCurrFrom := AllowedCurrencies[currencyFrom.Name]
 	changeRateCurrTo := AllowedCurrencies[currencyTo.Name]
 

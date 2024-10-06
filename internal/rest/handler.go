@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -34,6 +35,11 @@ type HTTPResponse struct {
 }
 
 func (s *Server) createWallet(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+	defer func() {
+		s.metrics.requestsDuration.WithLabelValues("createWallet", r.URL.Path).Observe(time.Since(startTime).Seconds())
+	}()
+
 	var wallet models.Wallet
 
 	w.Header().Set("Content-Type", "application/json")
@@ -67,6 +73,7 @@ func (s *Server) createWallet(w http.ResponseWriter, r *http.Request) {
 		return
 	case err != nil:
 		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+		log.Warnf("failed to create new wallet: %v", err)
 
 		return
 	}
@@ -75,6 +82,11 @@ func (s *Server) createWallet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getWalletByID(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+	defer func() {
+		s.metrics.requestsDuration.WithLabelValues("getWalletByID", r.URL.Path).Observe(time.Since(startTime).Seconds())
+	}()
+
 	walletID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, err.Error())
@@ -101,6 +113,11 @@ func (s *Server) getWalletByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateWallet(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+	defer func() {
+		s.metrics.requestsDuration.WithLabelValues("updateWallet", r.URL.Path).Observe(time.Since(startTime).Seconds())
+	}()
+
 	var walletDTO models.WalletDTO
 
 	w.Header().Set("Content-Type", "application/json")
@@ -129,6 +146,7 @@ func (s *Server) updateWallet(w http.ResponseWriter, r *http.Request) {
 	wallet, err := s.service.UpdateWallet(r.Context(), walletID, ownerID, walletDTO)
 	if err != nil {
 		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+		log.Warnf("failed to update wallet: %v", err)
 
 		return
 	}
@@ -137,6 +155,11 @@ func (s *Server) updateWallet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteWallet(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+	defer func() {
+		s.metrics.requestsDuration.WithLabelValues("deleteWallet", r.URL.Path).Observe(time.Since(startTime).Seconds())
+	}()
+
 	walletID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, err.Error())
@@ -155,6 +178,7 @@ func (s *Server) deleteWallet(w http.ResponseWriter, r *http.Request) {
 		return
 	case err != nil:
 		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+		log.Warnf("failed to delete wallet: %v", err)
 
 		return
 	}
@@ -163,6 +187,11 @@ func (s *Server) deleteWallet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deposit(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+	defer func() {
+		s.metrics.requestsDuration.WithLabelValues("deposit", r.URL.Path).Observe(time.Since(startTime).Seconds())
+	}()
+
 	var transaction models.Transaction
 
 	w.Header().Set("Content-Type", "application/json")
@@ -190,6 +219,7 @@ func (s *Server) deposit(w http.ResponseWriter, r *http.Request) {
 		return
 	case err != nil:
 		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+		log.Warnf("failed to deposit transaction: %v", err)
 
 		return
 	}
@@ -199,6 +229,11 @@ func (s *Server) deposit(w http.ResponseWriter, r *http.Request) {
 
 //nolint:dupl
 func (s *Server) transfer(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+	defer func() {
+		s.metrics.requestsDuration.WithLabelValues("transfer", r.URL.Path).Observe(time.Since(startTime).Seconds())
+	}()
+
 	var transaction models.Transaction
 
 	w.Header().Set("Content-Type", "application/json")
@@ -230,6 +265,7 @@ func (s *Server) transfer(w http.ResponseWriter, r *http.Request) {
 		return
 	case err != nil:
 		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+		log.Warnf("failed to transfer transaction: %v", err)
 
 		return
 	}
@@ -239,6 +275,11 @@ func (s *Server) transfer(w http.ResponseWriter, r *http.Request) {
 
 //nolint:dupl
 func (s *Server) withdraw(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+	defer func() {
+		s.metrics.requestsDuration.WithLabelValues("withdraw", r.URL.Path).Observe(time.Since(startTime).Seconds())
+	}()
+
 	var transaction models.Transaction
 
 	w.Header().Set("Content-Type", "application/json")
@@ -270,6 +311,7 @@ func (s *Server) withdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	case err != nil:
 		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+		log.Warnf("failed to withdraw transaction: %v", err)
 
 		return
 	}
@@ -278,6 +320,11 @@ func (s *Server) withdraw(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getTransactions(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+	defer func() {
+		s.metrics.requestsDuration.WithLabelValues("getTransactions", r.URL.Path).Observe(time.Since(startTime).Seconds())
+	}()
+
 	params, err := parseParams(r.URL.Query())
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "invalid query parameters")
@@ -309,6 +356,7 @@ func (s *Server) getTransactions(w http.ResponseWriter, r *http.Request) {
 		return
 	case err != nil:
 		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+		log.Warnf("failed to get transactions: %v", err)
 
 		return
 	}
