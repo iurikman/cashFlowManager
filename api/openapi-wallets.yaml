@@ -1,0 +1,221 @@
+openapi: 3.1.0
+
+info:
+  description: API
+  version: 1.0.0
+  title: API
+host: localhost:8080
+basePath: /api/v1
+schemes:
+  - http
+
+paths:
+  /wallets:
+    post:
+      summary: "create wallet"
+      description: "creates wallet and returns it"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+            $ref: "#/definitions/Wallet"
+      parameters:
+        - name: authentication
+          in: header
+          required: true
+          description: "authentication token with Bearer format"
+          schema:
+            type: string
+      responses:
+        200:
+          description: "successful answer"
+          schema:
+            $ref: "#/definitions/Wallet"
+  /wallets/id:
+    get:
+      summary: "get wallet"
+      description: "returns wallet be wallet ID"
+      parameters:
+        - name: authentication
+          in: header
+          required: true
+          description: "authentication token with Bearer format"
+          schema:
+            type: string
+      responses:
+        200:
+          description: "successful answer"
+          schema:
+            $ref: "#/definitions/Wallet"
+    delete:
+      summary: "delete wallet"
+      description: "deletes wallet by wallet ID"
+      responses:
+        204:
+          description: "successful answer"
+  /wallets/withdraw:
+    put:
+      summary: "withdraw operation"
+      description: "amends wallet balance, records operation data to database, writes operation data to kafka"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+            $ref: "#/definitions/Transaction"
+      parameters:
+        - name: authentication
+          in: header
+          required: true
+          description: "authentication token with Bearer format"
+          schema:
+            type: string
+      responses:
+        200:
+          description: "successful answer"
+  /wallets/transfer:
+    put:
+      summary: "transfer operation"
+      description: "amends wallets balances, records operation data to database, writes operation data to kafka"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+            $ref: "#/definitions/Transaction"
+      parameters:
+        - name: authentication
+          in: header
+          required: true
+          description: "authentication token with Bearer format"
+          schema:
+            type: string
+      responses:
+        200:
+          description: "successful answer"
+  /wallets/deposit:
+    put:
+      summary: "deposit operation"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+            $ref: "#/definitions/Transaction"
+      parameters:
+        - name: authentication
+          in: header
+          required: true
+          description: "authentication token with Bearer format"
+          schema:
+            type: string
+      description: "amends wallet balance, records operation data to database, writes operation data to kafka"
+      responses:
+        200:
+          description: "successful answer"
+  /wallets/id/transactions:
+    get:
+      summary: "get transactions"
+      description: "returns wallets transactions from database by wallet ID"
+      parameters:
+        - name: authentication
+          in: header
+          required: true
+          description: "authentication token with Bearer format"
+          schema:
+            type: string
+      responses:
+        200:
+          description: "successful answer"
+          schema:
+            $ref: "#/definitions/Transaction"
+
+definitions:
+  Wallet:
+    type: object
+    properties:
+      id:
+        type: string
+        format: uuid
+        example: e7e39e65-7b44-4bcc-ba43-64aa4d3a1aaf
+      owner:
+        type: string
+        format: uuid
+        example: e7e39e65-7b44-4bcc-ba43-64aa4d3a1aaf
+      currency:
+        type: string
+        enum:
+          - RUR
+          - CHY
+          - AED
+          - INR
+        example: RUR
+      balance:
+        type: number
+        format: float
+        example: 1.1
+      createdAt:
+        type: string
+        format: date-time
+        example: 2024-09-25T12:00:00Z
+      deleted:
+        type: boolean
+        example: false
+  PostWalletResponse:
+    in: header
+    name: PostWalletRequest
+    schema:
+      type: string
+
+  Transaction:
+    type:
+      - object
+    properties:
+      transactionID:
+        type: string
+        format: uuid
+        example: e7e39e65-7b44-4bcc-ba43-64aa4d3a1aaf
+      walletID:
+        type: string
+        format: uuid
+        example: e7e39e65-7b44-4bcc-ba43-64aa4d3a1aaf
+      ownerID:
+        type: string
+        format: uuid
+        example: e7e39e65-7b44-4bcc-ba43-64aa4d3a1aaf
+      targetWalletID:
+        type: string
+        format: uuid
+        example: e7e39e65-7b44-4bcc-ba43-64aa4d3a1aaf
+      amount:
+        type: number
+        format: float
+        example: 1.1
+      currency:
+        type: string
+        enum:
+          - RUR
+          - CHY
+          - AED
+          - INR
+        example: RUR
+      convertedAmount:
+        type: number
+        format: float
+        example: 1.1
+      exRate:
+        type: number
+        format: float
+        example: 1.1
+      operationType:
+        type: string
+        enum:
+          - "deposit"
+          - "transfer"
+          - "withdraw"
+        example: "transfer"
+      executedAt:
+        type: string
+        format: date-time
+        example: 2024-09-25T12-00-00Z

@@ -20,6 +20,7 @@ const standartPage = 10
 type service interface {
 	CreateWallet(context context.Context, wallet models.Wallet) (*models.Wallet, error)
 	GetWalletByID(ctx context.Context, id, ownerID uuid.UUID) (*models.Wallet, error)
+	UpdateWallet(ctx context.Context, walletID, ownerID uuid.UUID, walletDTO models.WalletDTO) (*models.Wallet, error)
 	DeleteWallet(context context.Context, id, ownerID uuid.UUID) error
 	Deposit(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error
 	Transfer(ctx context.Context, transaction models.Transaction, ownerID uuid.UUID) error
@@ -91,6 +92,42 @@ func (s *Server) getWalletByID(w http.ResponseWriter, r *http.Request) {
 
 		return
 	case err != nil:
+		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+
+		return
+	}
+
+	writeOkResponse(w, http.StatusOK, wallet)
+}
+
+func (s *Server) updateWallet(w http.ResponseWriter, r *http.Request) {
+	var walletDTO models.WalletDTO
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewDecoder(r.Body).Decode(&walletDTO); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	if err := walletDTO.Validate(); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	walletID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	ownerID := s.getOwnerIDFromRequest(r)
+
+	wallet, err := s.service.UpdateWallet(r.Context(), walletID, ownerID, walletDTO)
+	if err != nil {
 		writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
 
 		return

@@ -161,9 +161,7 @@ func saveTransaction(ctx context.Context, tx pgx.Tx, transaction models.Transact
 	return nil
 }
 
-func (p *Postgres) GetTransactions(ctx context.Context, id uuid.UUID, params models.Params) (
-	[]*models.Transaction, error,
-) {
+func (p *Postgres) GetTransactions(ctx context.Context, id uuid.UUID, params models.Params) ([]*models.Transaction, error) {
 	var transactions []*models.Transaction
 
 	query := `	SELECT id, wallet_id, owner_id, target_wallet_id, amount, 

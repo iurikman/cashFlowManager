@@ -11,6 +11,8 @@ linters-settings:
     skip-generated: true
   gofmt:
     simplify: true
+  lll:
+    line-length: 160
 
 linters:
   enable-all: true

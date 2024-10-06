@@ -9,43 +9,58 @@ import (
 
 const UserInfoKey ctxKey = "userInfo"
 
-type UserRegisterData struct {
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Phone    string `json:"phone"`
-	Password string `json:"password"`
+type ctxKey string
+
+type Wallet struct {
+	ID        uuid.UUID `json:"id"`
+	Owner     uuid.UUID `json:"owner"`
+	Name      string    `json:"name"`
+	Currency  string    `json:"currency"`
+	Balance   float64   `json:"balance"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	Deleted   bool      `json:"deleted"`
 }
 
-func (u UserRegisterData) Validate() error {
-	switch {
-	case u.Phone == "":
-		return ErrPhoneIsRequired
-	case u.Email == "":
-		return ErrEmailIsRequired
-	case u.Password == "":
-		return ErrPasswordIsRequired
-	case u.Name == "":
+func (w Wallet) Validate() error {
+	if _, ok := allowedCurrencies[w.Currency]; !ok {
+		return ErrCurrencyNotAllowed
+	}
+
+	if w.Owner == uuid.Nil {
+		return ErrOwnerIsEmpty
+	}
+
+	if w.Name == "" {
 		return ErrNameIsRequired
 	}
 
 	return nil
 }
 
-type UserLoginData struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+type WalletDTO struct {
+	Name     *string `json:"name,omitempty"`
+	Currency *string `json:"currency,omitempty"`
 }
 
-type ctxKey string
+func (w WalletDTO) Validate() error {
+	if w.Name != nil {
+		if *w.Name == "" {
+			return ErrNameIsEmpty
+		}
+	}
 
-type Wallet struct {
-	ID        uuid.UUID `json:"id"`
-	Owner     uuid.UUID `json:"owner"`
-	Currency  string    `json:"currency"`
-	Balance   float64   `json:"balance"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-	Deleted   bool      `json:"deleted"`
+	if w.Currency != nil {
+		if *w.Currency == "" {
+			return ErrCurrencyIsEmpty
+		}
+
+		if _, ok := allowedCurrencies[*w.Currency]; !ok {
+			return ErrCurrencyNotAllowed
+		}
+	}
+
+	return nil
 }
 
 type Transaction struct {
@@ -85,22 +100,6 @@ func (t Transaction) Validate() error {
 	return nil
 }
 
-func (w Wallet) Validate() error {
-	if _, ok := allowedCurrencies[w.Currency]; !ok {
-		return ErrCurrencyNotAllowed
-	}
-
-	if w.Balance < 0 {
-		return ErrBalanceBelowZero
-	}
-
-	if w.Owner == uuid.Nil {
-		return ErrOwnerIsEmpty
-	}
-
-	return nil
-}
-
 type User struct {
 	ID        uuid.UUID `json:"id"`
 	Username  string    `json:"username"`
@@ -114,6 +113,13 @@ type User struct {
 
 type UserInfo struct {
 	ID uuid.UUID
+}
+
+//nolint:gochecknoglobals
+var allowedOperationTypes = map[string]struct{}{
+	"deposit":  {},
+	"transfer": {},
+	"withdraw": {},
 }
 
 //nolint:gochecknoglobals
@@ -145,11 +151,4 @@ type Params struct {
 	FilterDateFrom string `schema:"filterFrom,omitempty"`
 	FilterDateTo   string `schema:"filterTo,omitempty"`
 	FilterType     string `schema:"filterCurrency,omitempty"`
-}
-
-//nolint:gochecknoglobals
-var allowedOperationTypes = map[string]struct{}{
-	"deposit":  {},
-	"transfer": {},
-	"withdraw": {},
 }
