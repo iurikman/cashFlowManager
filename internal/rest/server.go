@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 )
 
@@ -28,13 +29,10 @@ type Server struct {
 	key          *rsa.PublicKey
 	router       *chi.Mux
 	server       *http.Server
+	metrics      *metrics
 }
 
-func NewServer(
-	serverConfig ServerConfig,
-	srv service,
-	key *rsa.PublicKey,
-) (*Server, error) {
+func NewServer(serverConfig ServerConfig, srv service, key *rsa.PublicKey) (*Server, error) {
 	router := chi.NewRouter()
 
 	return &Server{
@@ -48,6 +46,7 @@ func NewServer(
 			ReadHeaderTimeout: readHeaderTimeout,
 			MaxHeaderBytes:    maxHeaderBytes,
 		},
+		metrics: newMetrics(),
 	}, nil
 }
 
@@ -93,4 +92,6 @@ func (s *Server) configRouter() {
 			})
 		})
 	})
+
+	s.router.Get("/metrics", promhttp.Handler().ServeHTTP)
 }

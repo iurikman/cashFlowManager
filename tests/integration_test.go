@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"testing"
 
@@ -96,6 +98,44 @@ func (s *IntegrationTestSuite) sendRequest(ctx context.Context, method, endpoint
 
 	resp, err := http.DefaultClient.Do(req)
 	s.Require().NoError(err)
+
+	defer func() {
+		err = resp.Body.Close()
+		s.Require().NoError(err)
+	}()
+
+	if dest != nil {
+		err = json.NewDecoder(resp.Body).Decode(&dest)
+		s.Require().NoError(err)
+	}
+
+	return resp
+}
+
+func (s *IntegrationTestSuite) sendMetricsRequest(ctx context.Context, body interface{}, dest interface{}) *http.Response {
+	s.T().Helper()
+
+	reqBody, err := json.Marshal(body)
+	s.Require().NoError(err)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8080/metrics", bytes.NewBuffer(reqBody))
+	s.Require().NoError(err)
+
+	req.Header.Set("Content-Type", "application/json")
+
+	req.Header.Set("Authorization", "Bearer "+s.authToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	s.Require().NoError(err)
+
+	if resp.Body != nil {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			s.T().Errorf("Ошибка чтения тела ответа: %v", err)
+		} else {
+			fmt.Println(string(body)) // Вывод метрик в консоль
+		}
+	}
 
 	defer func() {
 		err = resp.Body.Close()
