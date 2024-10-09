@@ -77,6 +77,13 @@ func main() {
 	log.Info("consumer started")
 
 	eg.Go(func() error {
+		err := svc.StartCleaner(ctx)
+
+		return fmt.Errorf("svc.StartCleaner: %w", err)
+	})
+	log.Info("cleaner started")
+
+	eg.Go(func() error {
 		err = srv.Start(ctx)
 
 		return fmt.Errorf("service stopped: %w", err)
