@@ -32,8 +32,8 @@ func (s *Server) jwtAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		espiresAtTime := time.Unix(claims.ExpiresAt.Unix(), 0)
-		if espiresAtTime.Before(time.Now()) {
+		expiresAtTime := time.Unix(claims.ExpiresAt.Unix(), 0)
+		if expiresAtTime.Before(time.Now()) {
 			writeErrorResponse(w, http.StatusUnauthorized, "invalid access token")
 
 			return
