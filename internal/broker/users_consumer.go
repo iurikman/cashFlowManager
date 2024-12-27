@@ -47,41 +47,42 @@ func (c *Consumer) Start(ctx context.Context) error {
 
 			return nil
 		default:
-			message, err := c.reader.ReadMessage(ctx)
-			if err != nil {
-				if errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) {
-					log.Warn("Consumer context canceled or reached EOF")
+		}
 
-					return nil
-				}
+		message, err := c.reader.ReadMessage(ctx)
+		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) {
+				log.Warn("Consumer context canceled or reached EOF")
 
-				log.Warnf("Failed to read message from Kafka (c.reader.ReadMessage(ctx) err): %s", err)
-
-				continue
+				return nil
 			}
 
-			if len(message.Value) == 0 {
-				log.Warn("Received empty message.")
+			log.Warnf("Failed to read message from Kafka (c.reader.ReadMessage(ctx) err): %s", err)
 
-				continue
-			}
+			continue
+		}
 
-			if err := json.Unmarshal(message.Value, &user); err != nil && !errors.Is(err, io.EOF) {
-				log.Warnf("failed to decode message from Kafka: %s", err)
+		if len(message.Value) == 0 {
+			log.Warn("Received empty message.")
 
-				continue
-			}
+			continue
+		}
 
-			log.Infof("\n Received user: \n ID: %v \n Name: %v \n Created at: %v \n Deleted: %v \n \n",
-				user.ID,
-				user.Username,
-				user.CreatedAt,
-				user.Deleted,
-			)
+		if err := json.Unmarshal(message.Value, &user); err != nil && !errors.Is(err, io.EOF) {
+			log.Warnf("failed to decode message from Kafka: %s", err)
 
-			if err = c.db.UpsertUser(ctx, user); err != nil {
-				log.Warnf("c.db.UpsertUser(...) err: %s", err)
-			}
+			continue
+		}
+
+		log.Infof("\n Received user: \n ID: %v \n Name: %v \n Created at: %v \n Deleted: %v \n \n",
+			user.ID,
+			user.Username,
+			user.CreatedAt,
+			user.Deleted,
+		)
+
+		if err = c.db.UpsertUser(ctx, user); err != nil {
+			log.Warnf("c.db.UpsertUser(...) err: %s", err)
 		}
 	}
 }
