@@ -1,14 +1,10 @@
 version: "2"
 
-setup:
-  go: "1.25"
 
 linters:
-  default:
-    enabled: true
+  default: standard
   disable:
     - funlen
-    - gomnd
     - exhaustruct
     - wsl
 
