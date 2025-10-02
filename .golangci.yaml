@@ -1,43 +1,22 @@
 version: "2"
 
-linters-settings:
-  gocyclo:
-    min-complexity: 24
-  cyclop:
-    max-complexity: 24
-  forbidigo:
-    forbid:
-      - '^fmt\.Print.*$'
-  gci:
-    sections:
-      - standard
-      - default
-      - prefix(github.com/your-username)
-    skip-generated: true
-  lll:
-    line-length: 160
+setup:
+  go: "1.25"
 
 linters:
-  enable-all: true
+  default:
+    enabled: true
   disable:
     - funlen
-    - depguard
-    - execinquery
-    - exportloopref
-    - exhaustruct
     - gomnd
-    - ireturn
-    - tagalign
-    - varnamelen
-    - wastedassign
+    - exhaustruct
+    - wsl
 
-run:
-  timeout: 5m
-  tests: false
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
 
 output:
   formats:
-    colored-line-number:
-      path: stdout
-  print-issued-lines: true
-  print-linter-name: true
+    json:
+      path: "/tmp/results.json"
