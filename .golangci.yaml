@@ -7,22 +7,25 @@ linters-settings:
     max-complexity: 24
   forbidigo:
     forbid:
-      - .*\.fatal,*
-      - fmt.Print.*
+      - '^fmt\.Print.*$'
   gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/your-username)
     skip-generated: true
-  gofmt:
-    simplify: true
   lll:
     line-length: 160
 
 linters:
   enable-all: true
-
   disable:
     - funlen
     - depguard
+    - execinquery
+    - exportloopref
     - exhaustruct
+    - gomnd
     - ireturn
     - tagalign
     - varnamelen
@@ -38,4 +41,3 @@ output:
       path: stdout
   print-issued-lines: true
   print-linter-name: true
-  uniq-by-line: true
