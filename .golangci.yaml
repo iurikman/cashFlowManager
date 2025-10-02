@@ -1,3 +1,5 @@
+version: "2"
+
 linters-settings:
   gocyclo:
     min-complexity: 24
@@ -20,10 +22,7 @@ linters:
   disable:
     - funlen
     - depguard
-    - execinquery
-    - exportloopref
     - exhaustruct
-    - gomnd
     - ireturn
     - tagalign
     - varnamelen
@@ -35,4 +34,8 @@ run:
 
 output:
   formats:
-  - format: colored-line-number
+    colored-line-number:
+      path: stdout
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: true
