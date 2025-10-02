@@ -10,7 +10,7 @@ services:
       - "5432:5432"
 
   kafka1:
-    image: docker.io/bitnami/kafka:3.7
+    image: docker.io/bitnami/kafka:3.6
     container_name: kafka1
     ports:
       - "9094:9094"
