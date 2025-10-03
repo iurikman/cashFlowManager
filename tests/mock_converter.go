@@ -2,8 +2,9 @@
 package tests
 
 import (
-	"github.com/iurikman/cashFlowManager/internal/converter"
 	"context"
+
+	"github.com/iurikman/cashFlowManager/internal/converter"
 )
 
 var AllowedCurrencies = map[string]float64{
