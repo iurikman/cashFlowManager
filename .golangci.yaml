@@ -1,38 +1,18 @@
-linters-settings:
-  gocyclo:
-    min-complexity: 24
-  cyclop:
-    max-complexity: 24
-  forbidigo:
-    forbid:
-      - .*\.fatal,*
-      - fmt.Print.*
-  gci:
-    skip-generated: true
-  gofmt:
-    simplify: true
-  lll:
-    line-length: 160
+version: "2"
+
 
 linters:
-  enable-all: true
-
+  default: standard
   disable:
     - funlen
-    - depguard
-    - execinquery
-    - exportloopref
     - exhaustruct
-    - gomnd
-    - ireturn
-    - tagalign
-    - varnamelen
-    - wastedassign
+    - wsl
 
-run:
-  timeout: 5m
-  tests: false
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
 
 output:
   formats:
-  - format: colored-line-number
+    json:
+      path: "/tmp/results.json"

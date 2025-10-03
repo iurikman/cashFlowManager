@@ -59,8 +59,8 @@ func (c *Converter) Convert(ctx context.Context, currencyFrom, currencyTo Curren
 		return 0, fmt.Errorf("failed to get currency code: %w", err)
 	}
 
-	switch {
-	case currencyTo.Name == "RUR":
+	switch currencyTo.Name {
+	case "RUR":
 		changeRateCurrFrom, err := c.fetchRate(ctx, *codeCurrFrom)
 		if err != nil {
 			return 0, fmt.Errorf("c.fetchRate(codeCurrFrom) err: %w", err)
@@ -107,7 +107,12 @@ func (c *Converter) fetchRate(ctx context.Context, currencyCode string) (float64
 		return 0, fmt.Errorf("client.Do(req) err: %w", err)
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			fmt.Printf("failed to close body, err: %v\n", err)
+		}
+	}()
 
 	reader := transform.NewReader(resp.Body, charmap.Windows1251.NewDecoder())
 
